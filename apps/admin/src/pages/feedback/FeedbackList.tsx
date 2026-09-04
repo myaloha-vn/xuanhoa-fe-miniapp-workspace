@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { MessageSquareWarning } from "lucide-react";
+import { MessageSquareWarning, Trash2, UserPlus } from "lucide-react";
 import { Card, CardHeader, StatusBadge, PriorityBadge, Button, Badge } from "../../components/common/ui";
 import { DataTable, type Column } from "../../components/common/DataTable";
 import { FilterBar, SearchInput, Select, DateRange, Tabs } from "../../components/common/Filters";
@@ -92,7 +92,25 @@ export default function FeedbackList() {
     { key: "assignee", header: "Phụ trách", mobile: "meta", render: (r) => users.find((u) => u.id === r.assigneeId)?.fullName ?? "Chưa phân công" },
     { key: "priority", header: "Ưu tiên", mobile: "badge", render: (r) => <PriorityBadge priority={r.priority} /> },
     { key: "status", header: "Trạng thái", mobile: "badge", render: (r) => <StatusBadge status={r.status} kind="feedback" /> },
-    { key: "act", header: "Thao tác", render: (r) => <Button size="sm" variant="secondary" onClick={() => navigate(`/workspace/feedback/${r.id}`)}>Xem</Button> },
+    { key: "act", header: "Thao tác", render: (r) => (
+      <div className="flex items-center gap-1">
+        <Button size="sm" variant="secondary" onClick={() => navigate(`/workspace/feedback/${r.id}`)}>Xem</Button>
+        <button
+          className="p-1.5 rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+          title="Phân công xử lý"
+          onClick={(e) => { e.stopPropagation(); /* TODO: mở dialog phân công */ }}
+        >
+          <UserPlus size={16} />
+        </button>
+        <button
+          className="p-1.5 rounded-md text-slate-500 hover:text-red-600 hover:bg-red-50 transition-colors"
+          title="Xoá"
+          onClick={(e) => { e.stopPropagation(); /* TODO: xác nhận xoá */ }}
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    ) },
   ];
 
   return (

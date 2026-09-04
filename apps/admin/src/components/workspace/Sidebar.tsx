@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router";
 import {
-  LayoutDashboard, MessageSquareWarning, Newspaper, Megaphone,
-  CalendarDays, GraduationCap, Images, Building2, Trash2, MapPinned,
+  LayoutDashboard, MessageSquareWarning, MessageCircle, Newspaper, Megaphone,
+  CalendarDays, GraduationCap, Images, Building2, Trash2, MapPinned, Home,
   ClipboardList, Grid3x3, BarChart3, Users, Settings, ShieldCheck, X, MonitorPlay,
-  ChevronDown, Newspaper as NewspaperGroup,
+  ChevronDown, Newspaper as NewspaperGroup, Landmark,
 } from "lucide-react";
 import logoXuanHoa from "../../assets/logo-dashboard.png";
 import type { Module } from "../../types";
@@ -26,6 +26,7 @@ export const MENU: Group[] = [
       { to: "/workspace/overview", label: "Tổng quan", icon: LayoutDashboard, module: "overview" },
       { to: "/workspace/feedback", label: "Phản ánh kiến nghị", icon: MessageSquareWarning, module: "feedback" },
       { to: "/workspace/surveys", label: "Khảo sát - đăng ký", icon: ClipboardList, module: "surveys" },
+      { to: "/workspace/suggestions", label: "Góp ý", icon: MessageCircle, module: "suggestions" },
     ],
   },
   {
@@ -45,6 +46,7 @@ export const MENU: Group[] = [
     icon: MapPinned,
     items: [
       { to: "/workspace/neighborhoods", label: "Khu phố", icon: Building2, module: "neighborhoods" },
+      { to: "/workspace/households", label: "Hộ gia đình", icon: Home, module: "households" },
       { to: "/workspace/waste-schedule", label: "Lịch thu gom rác", icon: Trash2, module: "waste" },
       { to: "/workspace/utilities", label: "Bản đồ tiện ích", icon: MapPinned, module: "utilities" },
     ],
@@ -54,6 +56,7 @@ export const MENU: Group[] = [
     icon: Settings,
     items: [
       { to: "/workspace/reports", label: "Thống kê - báo cáo", icon: BarChart3, module: "reports" },
+      { to: "/workspace/units", label: "Danh sách đơn vị", icon: Landmark, module: "reports" },
       { to: "/workspace/users", label: "Người dùng", icon: Users, module: "users" },
       { to: "/workspace/roles", label: "Vai trò và phân quyền", icon: ShieldCheck, module: "users" },
       { to: "/workspace/settings", label: "Cấu hình", icon: Settings, module: "settings" },

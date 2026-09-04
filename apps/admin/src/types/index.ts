@@ -9,7 +9,7 @@ export type Role =
   | "NEIGHBORHOOD_STAFF";
 
 export type Module =
-  | "overview" | "content" | "feedback" | "neighborhoods"
+  | "overview" | "content" | "feedback" | "suggestions" | "neighborhoods" | "households"
   | "waste" | "surveys" | "literacy" | "media" | "utilities"
   | "reports" | "users" | "settings";
 
@@ -43,6 +43,7 @@ export interface ContentItem {
   image: string;
   gallery: string[];
   videoUrl?: string;
+  link?: string;
   hoodId: number | null;
   hoodIds?: number[] | null;
   authorId: string;
@@ -224,6 +225,33 @@ export interface HomeConfig {
   literacyIds: string[];
   communityNewsIds: string[];
   sections: Record<string, boolean>;
+}
+
+/**
+ * Góp ý của người dân (không cần đăng nhập, gửi ẩn danh).
+ * - pending (Chờ tiếp nhận): mới gửi, chưa xử lý.
+ * - done (Đã xử lý): đã tiếp nhận và xử lý xong.
+ */
+export type SuggestionStatus = "pending" | "done";
+
+export interface Suggestion {
+  id: string;
+  content: string;
+  createdAt: string;
+  status: SuggestionStatus;
+}
+
+export interface Household {
+  id: string;
+  code: string;
+  headName: string;
+  headPhone: string;
+  headIdCard: string;
+  members: number;
+  address: string;
+  hoodId: number;
+  registeredAt: string;
+  status: "active" | "moved_out" | "temp_absent";
 }
 
 export interface OrgSettings {

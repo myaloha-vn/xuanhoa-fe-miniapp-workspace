@@ -12,6 +12,8 @@ import ContentList from "./pages/content/ContentList";
 import ContentEditor from "./pages/content/ContentEditor";
 import FeedbackList from "./pages/feedback/FeedbackList";
 import FeedbackDetail from "./pages/feedback/FeedbackDetail";
+import SuggestionsList from "./pages/suggestions/SuggestionsList";
+import HouseholdList from "./pages/households/HouseholdList";
 import NeighborhoodList from "./pages/neighborhoods/NeighborhoodList";
 import NeighborhoodDetail from "./pages/neighborhoods/NeighborhoodDetail";
 import WasteSchedulePage from "./pages/waste/WasteSchedule";
@@ -23,6 +25,7 @@ import Users from "./pages/users/Users";
 import Roles from "./pages/users/Roles";
 import Settings from "./pages/settings/Settings";
 import LedWall from "./pages/led/LedWall";
+import UnitsList from "./pages/units/UnitsList";
 
 const HOME = { label: "Trang chủ", to: "/workspace/overview" };
 
@@ -104,6 +107,12 @@ export function AppRouter() {
               </Page>
             } />
 
+            <Route path="/workspace/suggestions" element={
+              <Page module="suggestions" meta={{ title: "Góp ý", breadcrumb: [HOME, { label: "Điều hành" }, { label: "Góp ý" }] }}>
+                <SuggestionsList />
+              </Page>
+            } />
+
             <Route path="/workspace/neighborhoods" element={
               <Page module="neighborhoods" meta={{ title: "Khu phố", breadcrumb: [HOME, { label: "Địa bàn" }, { label: "Khu phố" }] }}>
                 <NeighborhoodList />
@@ -112,6 +121,11 @@ export function AppRouter() {
             <Route path="/workspace/neighborhoods/:id" element={
               <Page module="neighborhoods" meta={{ title: "Chi tiết khu phố", breadcrumb: [HOME, { label: "Khu phố", to: "/workspace/neighborhoods" }, { label: "Chi tiết" }] }}>
                 <NeighborhoodDetail />
+              </Page>
+            } />
+            <Route path="/workspace/households" element={
+              <Page module="households" meta={{ title: "Hộ gia đình", breadcrumb: [HOME, { label: "Địa bàn" }, { label: "Hộ gia đình" }] }}>
+                <HouseholdList />
               </Page>
             } />
 
@@ -138,6 +152,11 @@ export function AppRouter() {
             <Route path="/workspace/reports" element={
               <Page module="reports" meta={{ title: "Thống kê - báo cáo", breadcrumb: [HOME, { label: "Hệ thống" }, { label: "Báo cáo" }] }}>
                 <Reports />
+              </Page>
+            } />
+            <Route path="/workspace/units" element={
+              <Page module="reports" meta={{ title: "Danh sách đơn vị", breadcrumb: [HOME, { label: "Báo cáo & Quản trị" }, { label: "Đơn vị" }] }}>
+                <UnitsList />
               </Page>
             } />
             <Route path="/workspace/users" element={

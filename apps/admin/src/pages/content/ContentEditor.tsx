@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft, Eye, Save, Send, History as HistoryIcon, Upload } from "lucide-react";
+import { ArrowLeft, Eye, Save, Send, Upload } from "lucide-react";
 import { Card, CardHeader, Button, StatusBadge, Badge, MultiSelect, HtmlEditor } from "../../components/common/ui";
 import { ConfirmDialog, RightDrawer, useToast } from "../../components/common/Overlays";
 import { useAuth } from "../../services/auth";
 import { pushLog, pushNotification, useTable } from "../../services/store";
 import { CONTENT_TYPE_LABEL } from "../../data/mock";
-import { fmtDateTime, toInputDate } from "../../utils/format";
+import { toInputDate } from "../../utils/format";
 import type { ContentItem, ContentType } from "../../types";
 
 const TYPES: ContentType[] = ["news", "announcement", "event", "banner", "literacy"];
@@ -42,8 +42,6 @@ export default function ContentEditor() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [reviewNote, setReviewNote] = useState("");
 
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => { if (dirty) { e.preventDefault(); e.returnValue = ""; } };
@@ -105,7 +103,6 @@ export default function ContentEditor() {
         <Badge tone="slate">{CONTENT_TYPE_LABEL[form.type]}</Badge>
         {dirty && <Badge tone="amber">Chưa lưu</Badge>}
         <div className="ml-auto flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm" icon={<HistoryIcon size={14} />} onClick={() => setHistoryOpen(true)}>Lịch sử duyệt</Button>
           <Button variant="secondary" size="sm" icon={<Eye size={14} />} onClick={() => setPreview(true)}>Xem trước</Button>
           <Button variant="secondary" size="sm" icon={<Save size={14} />} onClick={saveDraft}>Lưu nháp</Button>
           {can("content", "publish") ? (
@@ -204,12 +201,6 @@ export default function ContentEditor() {
                 <input type="date" value={toInputDate(form.scheduledAt)}
                   onChange={(e) => set("scheduledAt", e.target.value ? new Date(e.target.value).toISOString() : null)} className={field} />
               </div>
-              <div className="flex flex-col gap-2 pt-1">
-                <label className="flex items-center gap-2 text-[13px] text-slate-700">
-                  <input type="checkbox" checked={form.featured} onChange={(e) => set("featured", e.target.checked)} className="w-4 h-4" />
-                  Đánh dấu nổi bật
-                </label>
-              </div>
             </div>
           </Card>
 
@@ -248,23 +239,6 @@ export default function ContentEditor() {
             <p key={i} className="text-[13.5px] text-slate-700 leading-relaxed">{p}</p>
           ))}
         </article>
-      </RightDrawer>
-
-      <RightDrawer open={historyOpen} title="Lịch sử duyệt" onClose={() => setHistoryOpen(false)}>
-        <ol className="space-y-4">
-          {form.history.map((h, i) => (
-            <li key={i} className="flex gap-3">
-              <span className="mt-1 w-2 h-2 rounded-full bg-blue-600 shrink-0" />
-              <div>
-                <p className="text-[13px] font-medium text-slate-800">{h.action}</p>
-                {h.note && <p className="text-[12.5px] text-slate-600">{h.note}</p>}
-                <p className="text-[11.5px] text-slate-400">{h.by} · {fmtDateTime(h.at)}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-        <label className={`${label} mt-5`}>Nhận xét khi gửi duyệt</label>
-        <textarea value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} rows={3} className={`${field} resize-none`} />
       </RightDrawer>
 
       <ConfirmDialog open={confirmSubmit} title="Gửi duyệt nội dung"

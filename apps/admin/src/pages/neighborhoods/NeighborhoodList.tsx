@@ -49,7 +49,7 @@ export default function NeighborhoodList() {
       key: "events", header: "Lịch sắp tới", mobile: "meta",
       render: (r) => contents.filter((c) => c.hoodId === r.id && c.type === "event" && c.startAt && daysLeft(c.startAt) >= 0).length,
     },
-    { key: "waste", header: "Lịch rác", mobile: "meta", render: (r) => waste.filter((w) => w.hoodIds.includes(r.id)).length },
+    { key: "waste", header: "Lịch rác", mobile: "meta", render: (r) => waste.filter((w) => w.hoodIds?.includes(r.id)).length },
     { key: "last", header: "Cập nhật gần nhất", mobile: "meta", render: (r) => fmtDateTime(r.lastUpdate) },
     { key: "status", header: "Trạng thái", mobile: "badge", render: (r) => <Badge tone={r.active ? "green" : "slate"}>{r.active ? "Đang hoạt động" : "Tạm ngưng"}</Badge> },
     {

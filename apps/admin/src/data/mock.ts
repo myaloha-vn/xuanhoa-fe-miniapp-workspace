@@ -1,6 +1,6 @@
 import type {
   ActivityLog, ContentItem, ContentStatus, Feedback, FeedbackStatus, HomeConfig,
-  MediaItem, Neighborhood, Notification, OrgSettings, Priority, Survey, User, Utility, WasteSchedule,
+  Household, MediaItem, Neighborhood, Notification, OrgSettings, Priority, Suggestion, SuggestionStatus, Survey, User, Utility, WasteSchedule,
 } from "../types";
 
 // ─── Tiện ích tạo dữ liệu tất định (deterministic) ───────────────────────────
@@ -277,7 +277,10 @@ export const CONTENTS: ContentItem[] = [
     })
   ),
   ...["Chào mừng Quốc khánh 2/9", "Cải cách hành chính 2026", "Chuyển đổi số Xuân Hoà"].map((t, i) =>
-    makeContent("banner", t, i + 40, { status: "published", hoodId: null })
+    makeContent("banner", t, i + 40, {
+      status: "published", hoodId: null,
+      link: ["https://xuanhoa.so/quoc-khanh-2-9", "https://xuanhoa.so/cai-cach-hanh-chinh", "https://xuanhoa.so/chuyen-doi-so"][i],
+    })
   ),
 ];
 
@@ -423,3 +426,76 @@ export const CONTENT_TYPE_LABEL: Record<string, string> = {
   news: "Tin tức", announcement: "Thông báo", event: "Lịch hoạt động",
   banner: "Banner", literacy: "Bình dân học vụ số",
 };
+
+// ─── 20 góp ý của người dân ─────────────────────────────────────────────────
+const SUGGESTION_CONTENTS = [
+  "Nên có thêm thùng rác tái chế ở khu vực công cộng để người dân dễ phân loại.",
+  "Đường số 5 vào buổi tối rất tối, đề nghị lắp thêm đèn chiếu sáng.",
+  "Công viên khu phố 3 cần thêm ghế ngồi cho người cao tuổi.",
+  "Nên có lịch thông báo trước về việc thu gom rác thải cồng kềnh.",
+  "Đường ống nước ở hẻm 7 hay bị rò rỉ, cần kiểm tra và sửa chữa.",
+  "Nên tổ chức thêm các hoạt động thể thao cuối tuần cho thanh thiếu niên.",
+  "Cần có biển báo giới hạn tốc độ ở khu vực gần trường học.",
+  "Nên có thêm cây xanh ở các tuyến đường chính để tạo bóng mát.",
+  "Đề nghị cải thiện hệ thống thoát nước ở khu vực chợ để tránh ngập úng.",
+  "Nên có ứng dụng di động để người dân theo dõi lịch thu gom rác.",
+  "Cần có thêm nhà vệ sinh công cộng ở khu vực trung tâm.",
+  "Đề nghị lắp đặt camera an ninh ở các ngã tư để đảm bảo an toàn giao thông.",
+  "Nên có chương trình hỗ trợ vay vốn cho hộ kinh doanh nhỏ.",
+  "Đường lát gạch ở khu phố 7 bị hỏng nhiều, cần sửa chữa.",
+  "Nên tổ chức các lớp học kỹ năng số cho người lớn tuổi vào cuối tuần.",
+  "Cần có thêm bãi đỗ xe ở khu vực chợ để giảm ùn tắc.",
+  "Đề nghị cải thiện chất lượng nước sinh hoạt ở khu phố 12.",
+  "Nên có thêm sân chơi cho trẻ em ở các khu phố.",
+  "Đường số 10 cần được nhựa lại vì đã xuống cấp nghiêm trọng.",
+  "Nên có hệ thống loa phát thanh thông báo các sự kiện cộng đồng.",
+];
+
+export const SUGGESTIONS: Suggestion[] = SUGGESTION_CONTENTS.map((content, i) => ({
+  id: `sg-${i + 1}`,
+  content,
+  createdAt: dayOffset(-int(0, 30), int(7, 20)),
+  status: (i % 3 === 0 ? "done" : "pending") as SuggestionStatus,
+}));
+
+// ─── Hộ gia đình ─────────────────────────────────────────────────────────────
+const HEAD_SURNAMES = ["Nguyễn", "Trần", "Lê", "Phạm", "Hoàng", "Huỳnh", "Phan", "Vũ", "Võ", "Đặng", "Bùi", "Đỗ", "Hồ", "Ngô", "Dương", "Lý"];
+const HEAD_MIDDLES = ["Văn", "Thị", "Đức", "Thúy", "Minh", "Hữu", "Thanh", "Hoàng", "Xuân", "Quang"];
+const HEAD_FIRSTS_MALE = ["Hùng", "Dũng", "Cường", "Tuấn", "Anh", "Hải", "Nam", "Phúc", "Đạt", "Long", "Sơn", "Thắng", "Hưng", "Toàn", "Trí"];
+const HEAD_FIRSTS_FEMALE = ["Hoa", "Lan", "Hương", "Mai", "Linh", "Trang", "Hằng", "Nga", "Thảo", "Oanh", "Thúy", "Hồng", "Vân", "Yến", "Phương"];
+const STREETS = Array.from({ length: 20 }, (_, i) => `Đường số ${i + 1}`);
+const ALLEYS = Array.from({ length: 10 }, (_, i) => `Hẻm ${i + 1}`);
+
+function generateHouseholds(): Household[] {
+  const result: Household[] = [];
+  let id = 1;
+  for (let hoodId = 1; hoodId <= 18; hoodId++) {
+    const count = 8 + int(0, 5);
+    for (let j = 0; j < count; j++) {
+      const isFemale = Math.random() > 0.6;
+      const surname = HEAD_SURNAMES[int(0, HEAD_SURNAMES.length - 1)];
+      const middle = isFemale ? pick(HEAD_MIDDLES.filter(m => m === "Thị" || m === "Thúy" || m === "Thanh" || m === "Xuân")) : pick(HEAD_MIDDLES.filter(m => m === "Văn" || m === "Đức" || m === "Minh" || m === "Hữu" || m === "Hoàng" || m === "Quang"));
+      const firstName = isFemale ? pick(HEAD_FIRSTS_FEMALE) : pick(HEAD_FIRSTS_MALE);
+      const street = pick(STREETS);
+      const alley = pick(ALLEYS);
+      const houseNum = int(1, 150);
+      const statusRoll = Math.random();
+      const status: Household["status"] = statusRoll < 0.85 ? "active" : statusRoll < 0.93 ? "moved_out" : "temp_absent";
+      result.push({
+        id: `hh-${id++}`,
+        code: `HKD-${String(hoodId).padStart(2, "0")}${String(j + 1).padStart(3, "0")}`,
+        headName: `${surname} ${middle} ${firstName}`,
+        headPhone: `09${String(int(10000000, 99999999))}`,
+        headIdCard: `${String(int(100000000, 999999999))}`,
+        members: int(1, 8),
+        address: `Số ${houseNum} ${alley}, ${street}`,
+        hoodId,
+        registeredAt: dayOffset(-int(30, 1500)),
+        status,
+      });
+    }
+  }
+  return result;
+}
+
+export const HOUSEHOLDS: Household[] = generateHouseholds();

@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Copy, Pencil, Plus, Trash2, Newspaper } from "lucide-react";
+import { Copy, Check, Pencil, Plus, Trash2, Newspaper } from "lucide-react";
 import { Card, CardHeader, StatusBadge, Button, Badge } from "../../components/common/ui";
 import { DataTable, type Column } from "../../components/common/DataTable";
-import { FilterBar, SearchInput, Select, DateRange } from "../../components/common/Filters";
+import { FilterBar, SearchInput, Select } from "../../components/common/Filters";
 import { ConfirmDialog, useToast } from "../../components/common/Overlays";
 import { Allow } from "../../components/common/Guards";
 import { useAuth } from "../../services/auth";
@@ -34,8 +34,7 @@ export default function ContentList({ type, title }: { type?: ContentType; title
   const [status, setStatus] = useState(params.get("status") ?? "");
   const [hood, setHood] = useState("");
   const [author, setAuthor] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<{ id: string; kind: "delete" } | null>(null);
   const [statusPopup, setStatusPopup] = useState<{ id: string; status: ContentStatus } | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
@@ -47,10 +46,8 @@ export default function ContentList({ type, title }: { type?: ContentType; title
     if (status && c.status !== status) return false;
     if (hood && String(c.hoodId ?? "") !== hood) return false;
     if (author && c.authorId !== author) return false;
-    if (from && new Date(c.createdAt) < new Date(from)) return false;
-    if (to && new Date(c.createdAt) > new Date(`${to}T23:59:59`)) return false;
     return true;
-  }), [scoped, type, q, status, hood, author, from, to]);
+  }), [scoped, type, q, status, hood, author]);
 
   const apply = (id: string, patch: Partial<ContentItem>, action: ContentItem["history"][0]["action"], label: string) => {
     setAll(all.map((c) => c.id === id
@@ -70,12 +67,36 @@ export default function ContentList({ type, title }: { type?: ContentType; title
     toast("Đã nhân bản nội dung");
   };
 
+  const isBanner = type === "banner";
+
+  const copyLink = (id: string, link?: string) => {
+    if (!link) return;
+    navigator.clipboard.writeText(link);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
+
   const columns: Column<ContentItem>[] = [
     { key: "image", header: "Ảnh", width: "100px", render: (r) => <img src={r.image} alt="" className="w-20 aspect-video rounded object-cover" /> },
     { key: "title", header: "Tiêu đề", mobile: "title", render: (r) => <span className="font-medium text-slate-800 line-clamp-2 max-w-[420px] inline-block">{r.title}</span> },
     { key: "author", header: "Tác giả", mobile: "meta", render: (r) => users.find((u) => u.id === r.authorId)?.fullName ?? "-" },
-    { key: "hood", header: "Đơn vị", mobile: "meta", render: (r) => (r.hoodId ? `Khu phố ${r.hoodId}` : "Toàn phường") },
-    { key: "published", header: "Ngày xuất bản", mobile: "meta", render: (r) => fmtDate(r.publishedAt ?? r.scheduledAt) },
+    ...(!isBanner ? [
+      { key: "hood" as const, header: "Đơn vị", mobile: "meta" as const, render: (r: ContentItem) => (r.hoodId ? `Khu phố ${r.hoodId}` : "Toàn phường") },
+      { key: "published" as const, header: "Ngày xuất bản", mobile: "meta" as const, render: (r: ContentItem) => fmtDate(r.publishedAt ?? r.scheduledAt) },
+    ] : [
+      { key: "link" as const, header: "Liên kết", mobile: "meta" as const, render: (r: ContentItem) => (
+        <div className="flex items-center gap-1.5 max-w-[260px]">
+          <span className="text-slate-600 truncate text-[12.5px]" title={r.link}>{r.link || "—"}</span>
+          {r.link && (
+            <button onClick={(e) => { e.stopPropagation(); copyLink(r.id, r.link); }}
+              title="Copy liên kết"
+              className="shrink-0 w-6 h-6 rounded-md hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-blue-600 transition-colors">
+              {copiedId === r.id ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
+            </button>
+          )}
+        </div>
+      ) },
+    ]),
     { key: "views", header: "Lượt xem", mobile: "meta", render: (r) => r.views },
     { key: "status", header: "Trạng thái", mobile: "badge", render: (r) => (
       <button onClick={() => setStatusPopup({ id: r.id, status: r.status })} className="hover:opacity-80 transition-opacity cursor-pointer">
@@ -155,7 +176,6 @@ export default function ContentList({ type, title }: { type?: ContentType; title
             options={neighborhoods.map((n) => ({ value: String(n.id), label: n.name }))} />
           <Select value={author} onChange={setAuthor} placeholder="Tất cả tác giả"
             options={users.map((u) => ({ value: u.id, label: u.fullName }))} />
-          <DateRange from={from} to={to} onFrom={setFrom} onTo={setTo} />
         </FilterBar>
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id}
           onRowClick={(r) => navigate(`/workspace/content/${r.id}/edit`)}

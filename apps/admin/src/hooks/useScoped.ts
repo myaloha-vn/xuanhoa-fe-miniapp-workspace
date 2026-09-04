@@ -32,3 +32,12 @@ export function useScopedNeighborhoods() {
     [all, hoodScope]
   );
 }
+
+export function useScopedHouseholds() {
+  const { hoodScope } = useAuth();
+  const [all] = useTable("households");
+  return useMemo(
+    () => (hoodScope ? all.filter((h) => h.hoodId === hoodScope) : all),
+    [all, hoodScope]
+  );
+}
