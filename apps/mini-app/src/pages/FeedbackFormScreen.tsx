@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { motion } from "motion/react";
 import {
-  AlertCircle, Building2, Camera, CheckCircle2, ChevronDown, Edit3, Info, MapPin, Phone, Plus, User, X,
+  AlertCircle, Building2, Camera, CheckCircle2, ChevronDown, Edit3, Info, MapPin, Navigation, Phone, Plus, User, X,
 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { FEEDBACK_TYPES, NEIGHBORHOODS } from "../data";
 import { useHousehold } from "../hooks/useAppStorage";
 import { AppHeader } from "../components/shared/AppHeader";
-import { LocateButton } from "../components/shared/LocateButton";
+import { MapPicker } from "../components/shared/MapPicker";
 
 // ─── SCREEN: FEEDBACK FORM ───────────────────────────────────────────────────
 export default function FeedbackFormScreen() {
@@ -21,8 +21,12 @@ export default function FeedbackFormScreen() {
   const [phone, setPhone] = useState(household?.phone ?? "");
   const [editContact, setEditContact] = useState(!household);
   const [images, setImages] = useState<string[]>([]);
-  const [shareLocation, setShareLocation] = useState(false);
   const [geo, setGeo] = useState("");
+  const [geoCoords, setGeoCoords] = useState<{ lat: number; lon: number } | null>(null);
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const [locatingBusy, setLocatingBusy] = useState(false);
+  const [locateErr, setLocateErr] = useState("");
   const [err, setErr] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [refId] = useState(`PK${String(Date.now()).slice(-4)}`);
@@ -98,20 +102,111 @@ export default function FeedbackFormScreen() {
           </div>
         </div>
 
-        {/* Content & location */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
-          <p className="text-[13px] font-extrabold text-gray-800">Nội dung phản ánh <span className="text-red-400">*</span></p>
+        {/* Content */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4">
+          <p className="text-[13px] font-extrabold text-gray-800 mb-3">
+            Nội dung phản ánh <span className="text-red-400">*</span>
+          </p>
           <textarea value={content} onChange={(e) => setContent(e.target.value)}
             placeholder="Mô tả chi tiết vấn đề bạn muốn phản ánh..."
             rows={4}
-            className="w-full text-[12.5px] text-gray-700 outline-none resize-none leading-relaxed placeholder-gray-300 border-b border-gray-100 pb-3" />
-          <div className="flex items-center gap-2">
+            className="w-full text-[12.5px] text-gray-700 outline-none resize-none leading-relaxed placeholder-gray-300" />
+        </div>
+
+        {/* Location */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+          <p className="text-[13px] font-extrabold text-gray-800">
+            Địa điểm xảy ra sự việc <span className="text-red-400">*</span>
+          </p>
+          <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 border border-gray-200">
             <MapPin size={14} className="text-[#1565C0] shrink-0" />
             <input value={address} onChange={(e) => setAddress(e.target.value)}
-              placeholder="Địa chỉ cụ thể *"
-              className="flex-1 text-[12.5px] outline-none placeholder-gray-300" />
+              placeholder="Nhập địa chỉ cụ thể..."
+              className="flex-1 text-[12.5px] outline-none bg-transparent placeholder-gray-400" />
           </div>
-          <LocateButton onLocated={setAddress} />
+
+          {/* Location actions */}
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              disabled={locatingBusy}
+              onClick={() => {
+                setLocateErr("");
+                setLocatingBusy(true);
+                if (!navigator.geolocation) {
+                  setLocateErr("Thiết bị không hỗ trợ định vị");
+                  setLocatingBusy(false);
+                  return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                  async (pos) => {
+                    const { latitude: lat, longitude: lon } = pos.coords;
+                    try {
+                      const res = await fetch(
+                        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=vi`
+                      );
+                      const data = await res.json();
+                      const addr = data?.display_name || `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+                      setAddress(addr);
+                      setGeo(addr);
+                      setGeoCoords({ lat, lon });
+                    } catch {
+                      setAddress(`${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+                      setGeo(`${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+                      setGeoCoords({ lat, lon });
+                    }
+                    // Đóng bản đồ nếu đang mở (vì đã có vị trí từ GPS)
+                    setShowMapPicker(false);
+                    setMapExpanded(false);
+                    setLocatingBusy(false);
+                  },
+                  () => {
+                    setLocateErr("Không lấy được vị trí. Hãy thử chọn trên bản đồ.");
+                    setLocatingBusy(false);
+                  },
+                  { enableHighAccuracy: true, timeout: 10000 }
+                );
+              }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-[#1565C0]/30 bg-blue-50 text-[#1565C0] text-[12px] font-bold active:bg-blue-100 disabled:opacity-60"
+            >
+              {locatingBusy ? (
+                <div className="w-3.5 h-3.5 border-2 border-[#1565C0] border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Navigation size={14} />
+              )}
+              {locatingBusy ? "Đang lấy..." : "Vị trí hiện tại"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowMapPicker(true)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-[#1565C0]/30 bg-blue-50 text-[#1565C0] text-[12px] font-bold active:bg-blue-100"
+            >
+              <MapPin size={14} />
+              Chọn trên bản đồ
+            </button>
+          </div>
+
+          {locateErr && (
+            <p className="text-[11px] text-red-500 flex items-start gap-1">
+              <AlertCircle size={11} className="shrink-0 mt-0.5" /> {locateErr}
+            </p>
+          )}
+
+          {/* Selected location display */}
+          {geo && (
+            <div className="flex items-start gap-2 rounded-xl bg-blue-50 border border-blue-100 px-3 py-2.5">
+              <CheckCircle2 size={13} className="text-[#1565C0] shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-[#1565C0] mb-0.5">ĐÃ XÁC ĐỊNH VỊ TRÍ</p>
+                <p className="text-[12px] text-gray-700 leading-snug">{geo}</p>
+                {geoCoords && (
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    {geoCoords.lat.toFixed(6)}, {geoCoords.lon.toFixed(6)}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Images */}
@@ -160,30 +255,6 @@ export default function FeedbackFormScreen() {
             <p className="mt-2 text-[11px] text-red-600 flex items-center gap-1">
               <AlertCircle size={11} className="shrink-0" /> Chưa có ảnh minh chứng
             </p>
-          )}
-        </div>
-
-        {/* Vị trí - tuỳ chọn, cần người gửi đồng ý */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
-          <p className="text-[13px] font-extrabold text-gray-800">
-            Vị trí sự việc <span className="text-gray-400 font-normal">(tuỳ chọn)</span>
-          </p>
-          <label className="flex items-start gap-2.5 text-[12px] text-gray-600 leading-relaxed">
-            <input type="checkbox" checked={shareLocation}
-              onChange={(e) => { setShareLocation(e.target.checked); if (!e.target.checked) setGeo(""); }}
-              className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>Tôi đồng ý chia sẻ vị trí hiện tại để cán bộ xác định chính xác nơi xảy ra sự việc.</span>
-          </label>
-          {shareLocation && (
-            <>
-              <LocateButton onLocated={(addr) => setGeo(addr)} />
-              {geo && (
-                <div className="flex items-start gap-2 rounded-xl bg-blue-50 border border-blue-100 px-3 py-2.5 text-[12px] text-gray-700">
-                  <MapPin size={13} className="text-[#1565C0] shrink-0 mt-0.5" />
-                  <span className="leading-snug">{geo}</span>
-                </div>
-              )}
-            </>
           )}
         </div>
 
@@ -256,6 +327,47 @@ export default function FeedbackFormScreen() {
           Gửi phản ánh
         </button>
       </div>
+
+      {/* Map Picker */}
+      {showMapPicker && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-[13px] font-extrabold text-gray-800">Chọn vị trí trên bản đồ</p>
+            <button
+              onClick={() => {
+                setShowMapPicker(false);
+                setMapExpanded(false);
+              }}
+              className="text-[11px] text-gray-500 font-semibold active:opacity-60"
+            >
+              Đóng
+            </button>
+          </div>
+          <MapPicker
+            key={geoCoords ? `${geoCoords.lat},${geoCoords.lon}` : "default"}
+            open={showMapPicker}
+            onClose={() => {
+              setShowMapPicker(false);
+              setMapExpanded(false);
+            }}
+            onSelect={(lat, lon, addr) => {
+              setAddress(addr);
+              setGeo(addr);
+              setGeoCoords({ lat, lon });
+            }}
+            onChange={(lat, lon, addr) => {
+              // Đồng bộ vị trí ngay khi thay đổi trên bản đồ
+              setAddress(addr);
+              setGeo(addr);
+              setGeoCoords({ lat, lon });
+            }}
+            initialLat={geoCoords?.lat}
+            initialLon={geoCoords?.lon}
+            expanded={mapExpanded}
+            onToggleExpand={() => setMapExpanded(!mapExpanded)}
+          />
+        </div>
+      )}
     </div>
   );
 }
