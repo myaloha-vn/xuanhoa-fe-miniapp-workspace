@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ClipboardList, Plus, Trash2 } from "lucide-react";
+import { ClipboardList, Plus, Trash2, BarChart3, X, Pencil } from "lucide-react";
 import { Card, CardHeader, Badge, Button, MultiSelect } from "../../components/common/ui";
 import { DataTable, type Column } from "../../components/common/DataTable";
 import { FilterBar, SearchInput, Select } from "../../components/common/Filters";
@@ -30,6 +30,7 @@ export default function Surveys() {
   const [status, setStatus] = useState("");
   const [editing, setEditing] = useState<Survey | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [viewingResult, setViewingResult] = useState<Survey | null>(null);
 
   const rows = surveys.filter((s) =>
     (!q || s.title.toLowerCase().includes(q.toLowerCase())) &&
@@ -53,13 +54,27 @@ export default function Surveys() {
       key: "act", header: "Thao tác",
       render: (r) => (
         <div className="flex gap-1">
+          <div className="group relative">
+            <button onClick={() => setViewingResult(r)} className="w-7 h-7 rounded-lg hover:bg-emerald-50 flex items-center justify-center text-emerald-600">
+              <BarChart3 size={13} />
+            </button>
+            <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-slate-800 text-white text-[11px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">Xem kết quả</span>
+          </div>
           <Allow module="surveys" action="edit">
-            <button onClick={() => setEditing(r)} className="px-2 py-1 rounded-lg text-[12px] text-blue-600 hover:bg-blue-50">Sửa</button>
+            <div className="group relative">
+              <button onClick={() => setEditing(r)} className="w-7 h-7 rounded-lg hover:bg-blue-50 flex items-center justify-center text-blue-600">
+                <Pencil size={13} />
+              </button>
+              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-slate-800 text-white text-[11px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">Sửa</span>
+            </div>
           </Allow>
           <Allow module="surveys" action="delete">
-            <button onClick={() => setConfirmDelete(r.id)} className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-500">
-              <Trash2 size={13} />
-            </button>
+            <div className="group relative">
+              <button onClick={() => setConfirmDelete(r.id)} className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-500">
+                <Trash2 size={13} />
+              </button>
+              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded bg-slate-800 text-white text-[11px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">Xoá</span>
+            </div>
           </Allow>
         </div>
       ),
@@ -191,6 +206,93 @@ export default function Surveys() {
       <ConfirmDialog open={!!confirmDelete} title="Xoá biểu mẫu" description="Biểu mẫu và dữ liệu phản hồi sẽ bị xoá."
         confirmLabel="Xoá" tone="danger" onCancel={() => setConfirmDelete(null)}
         onConfirm={() => { setSurveys(surveys.filter((s) => s.id !== confirmDelete)); setConfirmDelete(null); toast("Đã xoá biểu mẫu"); }} />
+
+      {/* Modal xem kết quả khảo sát */}
+      {viewingResult && (
+        <div className="fixed inset-0 z-[90] bg-slate-900/40 flex items-center justify-center p-4" onClick={() => setViewingResult(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl max-h-[85vh] bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <BarChart3 size={16} className="text-emerald-600" />
+                <h3 className="text-[15px] font-semibold text-slate-900">Kết quả khảo sát</h3>
+              </div>
+              <button onClick={() => setViewingResult(null)} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <p className="text-[14px] font-medium text-slate-800 mb-1">{viewingResult.title}</p>
+              <p className="text-[12.5px] text-slate-500 mb-4">Tổng số lượt tham gia: <span className="font-semibold text-slate-700">{viewingResult.responses}</span></p>
+
+              <div className="space-y-5">
+                {viewingResult.questions.map((question, idx) => {
+                  // Generate mock statistics based on question type
+                  const mockStats = generateMockStats(question, viewingResult.responses);
+                  return (
+                    <div key={question.id} className="rounded-lg border border-slate-200 p-4">
+                      <p className="text-[13px] font-medium text-slate-800 mb-3">
+                        <span className="text-slate-400 mr-1">Câu {idx + 1}.</span> {question.label}
+                      </p>
+                      {question.type === "text" || question.type === "number" ? (
+                        <div className="text-[12.5px] text-slate-600">
+                          <span className="text-slate-400">Loại:</span> {question.type === "text" ? "Trả lời tự do" : "Nhập số"}
+                          <span className="ml-3 text-slate-400">Số câu trả lời:</span> <span className="font-medium">{viewingResult.responses}</span>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {mockStats.map((stat, i) => (
+                            <div key={i} className="flex items-center gap-3">
+                              <span className="text-[12.5px] text-slate-700 w-32 truncate" title={stat.label}>{stat.label}</span>
+                              <div className="flex-1 h-6 bg-slate-100 rounded-full overflow-hidden relative">
+                                <div
+                                  className="h-full bg-emerald-500 rounded-full transition-all"
+                                  style={{ width: `${stat.percent}%` }}
+                                />
+                                <span className="absolute inset-0 flex items-center justify-center text-[11px] font-medium text-slate-700">
+                                  {stat.count} người ({stat.percent}%)
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="px-5 py-3.5 border-t border-slate-100 flex justify-end">
+              <Button variant="secondary" onClick={() => setViewingResult(null)}>Đóng</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
+}
+
+// Helper function to generate mock statistics
+function generateMockStats(question: { type: string; options?: string[] }, totalResponses: number) {
+  const defaultOptions = question.options?.length
+    ? question.options
+    : question.type === "single"
+      ? ["Rất hài lòng", "Hài lòng", "Bình thường", "Chưa hài lòng"]
+      : ["Có", "Không", "Chưa chắc"];
+
+  // Generate random but consistent distribution
+  const counts: number[] = [];
+  let remaining = totalResponses;
+  for (let i = 0; i < defaultOptions.length - 1; i++) {
+    const max = remaining - (defaultOptions.length - i - 1);
+    const count = Math.max(0, Math.floor(Math.random() * max * 0.6));
+    counts.push(count);
+    remaining -= count;
+  }
+  counts.push(remaining);
+
+  return defaultOptions.map((label, i) => ({
+    label,
+    count: counts[i],
+    percent: totalResponses > 0 ? Math.round((counts[i] / totalResponses) * 100) : 0,
+  }));
 }

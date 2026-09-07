@@ -77,11 +77,9 @@ export default function ContentList({ type, title }: { type?: ContentType; title
   };
 
   const columns: Column<ContentItem>[] = [
-    { key: "image", header: "Ảnh", width: "100px", render: (r) => <img src={r.image} alt="" className="w-20 aspect-video rounded object-cover" /> },
     { key: "title", header: "Tiêu đề", mobile: "title", render: (r) => <span className="font-medium text-slate-800 line-clamp-2 max-w-[420px] inline-block">{r.title}</span> },
-    { key: "author", header: "Tác giả", mobile: "meta", render: (r) => users.find((u) => u.id === r.authorId)?.fullName ?? "-" },
+    { key: "category", header: "Danh mục", mobile: "meta", render: (r) => r.category || "—" },
     ...(!isBanner ? [
-      { key: "hood" as const, header: "Đơn vị", mobile: "meta" as const, render: (r: ContentItem) => (r.hoodId ? `Khu phố ${r.hoodId}` : "Toàn phường") },
       { key: "published" as const, header: "Ngày xuất bản", mobile: "meta" as const, render: (r: ContentItem) => fmtDate(r.publishedAt ?? r.scheduledAt) },
     ] : [
       { key: "link" as const, header: "Liên kết", mobile: "meta" as const, render: (r: ContentItem) => (
@@ -172,10 +170,6 @@ export default function ContentList({ type, title }: { type?: ContentType; title
         <FilterBar>
           <SearchInput value={q} onChange={setQ} placeholder="Tìm theo tiêu đề..." />
           <Select value={status} onChange={setStatus} placeholder="Tất cả trạng thái" options={STATUS_OPTIONS} />
-          <Select value={hood} onChange={setHood} placeholder="Tất cả đơn vị"
-            options={neighborhoods.map((n) => ({ value: String(n.id), label: n.name }))} />
-          <Select value={author} onChange={setAuthor} placeholder="Tất cả tác giả"
-            options={users.map((u) => ({ value: u.id, label: u.fullName }))} />
         </FilterBar>
         <DataTable columns={columns} rows={rows} rowKey={(r) => r.id}
           onRowClick={(r) => navigate(`/workspace/content/${r.id}/edit`)}
