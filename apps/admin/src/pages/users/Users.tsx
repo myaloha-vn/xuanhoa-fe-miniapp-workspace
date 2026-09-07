@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, Users as UsersIcon, Shield, Briefcase, User as UserIcon } from "lucide-react";
+import { Plus, Trash2, Users as UsersIcon, Shield, User as UserIcon } from "lucide-react";
 import { Card, CardHeader, Badge, Button } from "../../components/common/ui";
 import { DataTable, type Column } from "../../components/common/DataTable";
 import { FilterBar, SearchInput, Select } from "../../components/common/Filters";
@@ -10,7 +10,7 @@ import { ROLE_LABEL } from "../../services/permissions";
 import { fmtDateTime } from "../../utils/format";
 import type { Role, User } from "../../types";
 
-type TabKey = "admin" | "staff" | "citizen";
+type TabKey = "admin" | "citizen";
 
 interface Citizen {
   id: string;
@@ -32,13 +32,11 @@ const EMPTY_CITIZEN: Citizen = {
 
 const TABS: { key: TabKey; label: string; icon: any }[] = [
   { key: "admin", label: "Quản trị", icon: Shield },
-  { key: "staff", label: "Cán bộ", icon: Briefcase },
   { key: "citizen", label: "Người dân", icon: UserIcon },
 ];
 
 // Phân loại role
 const ADMIN_ROLES: Role[] = ["SUPER_ADMIN", "PHUONG_ADMIN"];
-const STAFF_ROLES: Role[] = ["CONTENT_EDITOR", "FEEDBACK_OFFICER", "NEIGHBORHOOD_LEADER", "NEIGHBORHOOD_STAFF"];
 
 // Dữ liệu người dân mẫu
 const INITIAL_CITIZENS: Citizen[] = [
@@ -76,8 +74,6 @@ export default function Users() {
     // Filter by role based on tab
     if (activeTab === "admin") {
       filtered = filtered.filter((u) => ADMIN_ROLES.includes(u.role));
-    } else if (activeTab === "staff") {
-      filtered = filtered.filter((u) => STAFF_ROLES.includes(u.role));
     }
 
     // Apply search
@@ -129,29 +125,6 @@ export default function Users() {
     },
   ];
 
-  // Columns for Staff tab
-  const staffColumns: Column<User>[] = [
-    { key: "name", header: "Họ tên", mobile: "title", render: (r) => <span className="font-medium text-slate-800">{r.fullName}</span> },
-    { key: "phone", header: "SĐT", mobile: "meta", render: (r) => r.phone },
-    { key: "unit", header: "Đơn vị", mobile: "meta", render: (r) => r.unit },
-    { key: "role", header: "Chức vụ", mobile: "badge", render: (r) => <Badge tone="violet">{ROLE_LABEL[r.role]}</Badge> },
-    { key: "status", header: "Trạng thái", mobile: "badge", render: (r) => <Badge tone={r.status === "active" ? "blue" : "slate"}>{r.status === "active" ? "Hoạt động" : "Đã khoá"}</Badge> },
-    {
-      key: "act", header: "Thao tác",
-      render: (r) => (
-        <div className="flex gap-1">
-          <Allow module="users" action="edit">
-            <button onClick={() => setEditing(r)} className="px-2 py-1 rounded-lg text-[12px] text-blue-600 hover:bg-blue-50">Sửa</button>
-            <button title="Xoá" onClick={() => setConfirmDelete(r)}
-              className="w-7 h-7 rounded-lg hover:bg-red-50 flex items-center justify-center text-red-500">
-              <Trash2 size={13} />
-            </button>
-          </Allow>
-        </div>
-      ),
-    },
-  ];
-
   // Columns for Citizen tab
   const citizenColumns: Column<Citizen>[] = [
     { key: "name", header: "Họ tên", mobile: "title", render: (r) => <span className="font-medium text-slate-800">{r.fullName}</span> },
@@ -174,7 +147,6 @@ export default function Users() {
 
   const getColumns = () => {
     if (activeTab === "admin") return adminColumns;
-    if (activeTab === "staff") return staffColumns;
     return citizenColumns;
   };
 

@@ -26,6 +26,7 @@ import Roles from "./pages/users/Roles";
 import Settings from "./pages/settings/Settings";
 import LedWall from "./pages/led/LedWall";
 import UnitsList from "./pages/units/UnitsList";
+import StaffList from "./pages/users/StaffList";
 
 const HOME = { label: "Trang chủ", to: "/workspace/overview" };
 
@@ -157,6 +158,11 @@ export function AppRouter() {
             <Route path="/workspace/units" element={
               <Page module="reports" meta={{ title: "Danh sách đơn vị", breadcrumb: [HOME, { label: "Báo cáo & Quản trị" }, { label: "Đơn vị" }] }}>
                 <UnitsList />
+              </Page>
+            } />
+            <Route path="/workspace/staff" element={
+              <Page module="users" meta={{ title: "Danh sách cán bộ", breadcrumb: [HOME, { label: "Báo cáo & Quản trị" }, { label: "Cán bộ" }] }}>
+                <StaffList />
               </Page>
             } />
             <Route path="/workspace/users" element={

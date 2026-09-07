@@ -4,7 +4,7 @@ import {
   LayoutDashboard, MessageSquareWarning, MessageCircle, Newspaper, Megaphone,
   CalendarDays, GraduationCap, Images, Building2, Trash2, MapPinned, Home,
   ClipboardList, Grid3x3, BarChart3, Users, Settings, ShieldCheck, X, MonitorPlay,
-  ChevronDown, Newspaper as NewspaperGroup, Landmark,
+  ChevronDown, Newspaper as NewspaperGroup, Landmark, Briefcase,
 } from "lucide-react";
 import logoXuanHoa from "../../assets/logo-dashboard.png";
 import type { Module } from "../../types";
@@ -57,6 +57,7 @@ export const MENU: Group[] = [
     items: [
       { to: "/workspace/reports", label: "Thống kê - báo cáo", icon: BarChart3, module: "reports" },
       { to: "/workspace/units", label: "Danh sách đơn vị", icon: Landmark, module: "reports" },
+      { to: "/workspace/staff", label: "Danh sách cán bộ", icon: Briefcase, module: "users" },
       { to: "/workspace/users", label: "Người dùng", icon: Users, module: "users" },
       { to: "/workspace/roles", label: "Vai trò và phân quyền", icon: ShieldCheck, module: "users" },
       { to: "/workspace/settings", label: "Cấu hình", icon: Settings, module: "settings" },
