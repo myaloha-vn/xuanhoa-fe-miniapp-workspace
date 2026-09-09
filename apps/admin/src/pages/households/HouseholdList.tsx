@@ -1,5 +1,5 @@
-import { useMemo, useState, useRef } from "react";
-import { Home, Pencil, Trash2, Save, X, Upload, ChevronDown, Download } from "lucide-react";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { Home, Pencil, Trash2, Save, X, Upload, ChevronDown, Download, Eye } from "lucide-react";
 import * as XLSX from "xlsx";
 import { Card, CardHeader, Badge, Button } from "../../components/common/ui";
 import { DataTable, type Column } from "../../components/common/DataTable";
@@ -8,7 +8,7 @@ import { useToast } from "../../components/common/Overlays";
 import { useScopedHouseholds } from "../../hooks/useScoped";
 import { useTable } from "../../services/store";
 import { fmtDate } from "../../utils/format";
-import type { Household } from "../../types";
+import type { Household, HouseholdMember } from "../../types";
 
 const STATUS_LABEL: Record<Household["status"], string> = {
   active: "Hộ thường trú",
@@ -26,11 +26,13 @@ export default function HouseholdList() {
   const households = useScopedHouseholds();
   const [allHouseholds, setAllHouseholds] = useTable("households");
   const [neighborhoods] = useTable("neighborhoods");
+  const [allMembers] = useTable("householdMembers");
   const [q, setQ] = useState("");
   const [hoodFilter, setHoodFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [editing, setEditing] = useState<Household | null>(null);
   const [deleting, setDeleting] = useState<Household | null>(null);
+  const [viewingMembers, setViewingMembers] = useState<Household | null>(null);
   const [showImportMenu, setShowImportMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -130,13 +132,13 @@ export default function HouseholdList() {
 
   const columns: Column<Household>[] = [
     {
-      key: "code",
-      header: "Mã hộ",
+      key: "headName",
+      header: "Tên chủ hộ",
       mobile: "title",
       render: (r) => (
         <div>
-          <span className="font-medium text-slate-800">{r.code}</span>
-          <p className="text-[12px] text-slate-500 mt-0.5">{r.headName}</p>
+          <span className="font-medium text-slate-800">{r.headName}</span>
+          <p className="text-[12px] text-slate-500 mt-0.5">{r.code}</p>
         </div>
       ),
     },
@@ -190,6 +192,14 @@ export default function HouseholdList() {
       header: "Thao tác",
       render: (r) => (
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setViewingMembers(r)}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+            title="Xem thành viên"
+          >
+            <Eye size={15} />
+          </button>
           <button
             type="button"
             onClick={() => setEditing(r)}
@@ -304,6 +314,14 @@ export default function HouseholdList() {
           household={deleting}
           onClose={() => setDeleting(null)}
           onConfirm={handleDelete}
+        />
+      )}
+
+      {viewingMembers && (
+        <MembersModal
+          household={viewingMembers}
+          members={allMembers.filter((m) => m.householdId === viewingMembers.id)}
+          onClose={() => setViewingMembers(null)}
         />
       )}
     </>
@@ -453,6 +471,77 @@ function ConfirmDeleteModal({
         <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-slate-100">
           <Button variant="ghost" onClick={onClose}>Huỷ</Button>
           <Button variant="danger" onClick={onConfirm}>Xoá</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Modal xem thành viên hộ gia đình ─────────────────────────────────────── */
+
+function MembersModal({
+  household,
+  members,
+  onClose,
+}: {
+  household: Household;
+  members: HouseholdMember[];
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h3 className="text-[15px] font-semibold text-slate-800">
+              Thành viên hộ: {household.headName}
+            </h3>
+            <p className="text-[12px] text-slate-500 mt-0.5">
+              {household.code} — {household.address}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 py-3">
+          {members.length === 0 ? (
+            <p className="text-[13px] text-slate-500 text-center py-8">Không có dữ liệu thành viên</p>
+          ) : (
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="text-left py-2 px-2 font-semibold text-slate-500 text-[11.5px] uppercase">STT</th>
+                  <th className="text-left py-2 px-2 font-semibold text-slate-500 text-[11.5px] uppercase">Họ tên</th>
+                  <th className="text-left py-2 px-2 font-semibold text-slate-500 text-[11.5px] uppercase">Quan hệ</th>
+                  <th className="text-left py-2 px-2 font-semibold text-slate-500 text-[11.5px] uppercase">SĐT</th>
+                  <th className="text-left py-2 px-2 font-semibold text-slate-500 text-[11.5px] uppercase">Ngày sinh</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((m, idx) => (
+                  <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50">
+                    <td className="py-2 px-2 text-slate-500">{idx + 1}</td>
+                    <td className="py-2 px-2 font-medium text-slate-800">{m.fullName}</td>
+                    <td className="py-2 px-2 text-slate-600">{m.relation}</td>
+                    <td className="py-2 px-2 text-slate-600">{m.phone || "—"}</td>
+                    <td className="py-2 px-2 text-slate-600">{fmtDate(m.dob)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end px-5 py-3 border-t border-slate-100 shrink-0">
+          <Button variant="ghost" onClick={onClose}>Đóng</Button>
         </div>
       </div>
     </div>

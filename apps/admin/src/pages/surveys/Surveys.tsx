@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ClipboardList, Plus, Trash2, BarChart3, X, Pencil } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ClipboardList, Plus, Trash2, BarChart3, X, Pencil, Eye, Download, Search } from "lucide-react";
 import { Card, CardHeader, Badge, Button, MultiSelect } from "../../components/common/ui";
 import { DataTable, type Column } from "../../components/common/DataTable";
 import { FilterBar, SearchInput, Select } from "../../components/common/Filters";
@@ -8,6 +8,7 @@ import { Allow } from "../../components/common/Guards";
 import { useTable } from "../../services/store";
 import { fmtDate, toInputDate } from "../../utils/format";
 import type { Survey } from "../../types";
+import * as XLSX from "xlsx";
 
 const KIND_LABEL: Record<string, string> = {
   survey: "Khảo sát ý kiến", register_event: "Đăng ký tham gia hoạt động",
@@ -31,6 +32,8 @@ export default function Surveys() {
   const [editing, setEditing] = useState<Survey | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [viewingResult, setViewingResult] = useState<Survey | null>(null);
+  const [viewingAnswers, setViewingAnswers] = useState<{ survey: Survey; question: Survey["questions"][0] } | null>(null);
+  const [answerSearch, setAnswerSearch] = useState("");
 
   const rows = surveys.filter((s) =>
     (!q || s.title.toLowerCase().includes(q.toLowerCase())) &&
@@ -234,9 +237,18 @@ export default function Surveys() {
                         <span className="text-slate-400 mr-1">Câu {idx + 1}.</span> {question.label}
                       </p>
                       {question.type === "text" || question.type === "number" ? (
-                        <div className="text-[12.5px] text-slate-600">
-                          <span className="text-slate-400">Loại:</span> {question.type === "text" ? "Trả lời tự do" : "Nhập số"}
-                          <span className="ml-3 text-slate-400">Số câu trả lời:</span> <span className="font-medium">{viewingResult.responses}</span>
+                        <div className="flex items-center justify-between">
+                          <div className="text-[12.5px] text-slate-600">
+                            <span className="text-slate-400">Loại:</span> {question.type === "text" ? "Trả lời tự do" : "Nhập số"}
+                            <span className="ml-3 text-slate-400">Số câu trả lời:</span> <span className="font-medium">{viewingResult.responses}</span>
+                          </div>
+                          <button
+                            onClick={() => setViewingAnswers({ survey: viewingResult, question })}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[12px] font-medium transition-colors"
+                          >
+                            <Eye size={13} />
+                            Xem câu trả lời
+                          </button>
                         </div>
                       ) : (
                         <div className="space-y-2">
@@ -267,6 +279,17 @@ export default function Surveys() {
           </div>
         </div>
       )}
+
+      {/* Modal xem danh sách câu trả lời tự do */}
+      {viewingAnswers && (
+        <FreeTextAnswersModal
+          survey={viewingAnswers.survey}
+          question={viewingAnswers.question}
+          searchValue={answerSearch}
+          onSearchChange={setAnswerSearch}
+          onClose={() => { setViewingAnswers(null); setAnswerSearch(""); }}
+        />
+      )}
     </>
   );
 }
@@ -295,4 +318,169 @@ function generateMockStats(question: { type: string; options?: string[] }, total
     count: counts[i],
     percent: totalResponses > 0 ? Math.round((counts[i] / totalResponses) * 100) : 0,
   }));
+}
+
+// ─── Mock câu trả lời tự do ──────────────────────────────────────────────────
+const FREE_TEXT_POOL = [
+  "Cần cải thiện chất lượng dịch vụ hành chính công, giảm thời gian chờ đợi.",
+  "Đường sá trong khu phố cần được sửa chữa, nhiều chỗ bị ổ gà.",
+  "Nên có thêm thùng rác tái chế ở khu vực công cộng.",
+  "Hệ thống chiếu sáng công cộng cần được nâng cấp, nhiều đèn đã hỏng.",
+  "Đề nghị lắp thêm camera an ninh ở các ngã tư.",
+  "Nước sinh hoạt vào giờ cao điểm rất yếu, cần cải thiện.",
+  "Công viên khu phố cần thêm ghế ngồi cho người cao tuổi.",
+  "Nên tổ chức thêm hoạt động thể thao cuối tuần cho thanh thiếu niên.",
+  "Cần có biển báo giới hạn tốc độ ở khu vực gần trường học.",
+  "Đề nghị cải thiện hệ thống thoát nước để tránh ngập úng mùa mưa.",
+  "Rất hài lòng với dịch vụ hiện tại, tiếp tục phát huy.",
+  "Cần có ứng dụng di động để theo dõi lịch thu gom rác.",
+  "Quán karaoke mở nhạc lớn sau 22 giờ gây ảnh hưởng đến khu dân cư.",
+  "Nên có thêm cây xanh ở các tuyến đường chính để tạo bóng mát.",
+  "Đường ống nước ở hẻm hay bị rò rỉ, cần kiểm tra và sửa chữa.",
+  "Cần có thêm nhà vệ sinh công cộng ở khu vực trung tâm.",
+  "Nên có chương trình hỗ trợ vay vốn cho hộ kinh doanh nhỏ.",
+  "Đường lát gạch bị hỏng nhiều, cần sửa chữa kịp thời.",
+  "Cần có thêm bãi đỗ xe ở khu vực chợ để giảm ùn tắc.",
+  "Nên tổ chức các lớp học kỹ năng số cho người lớn tuổi.",
+  "Đề nghị lắp đặt hệ thống loa phát thanh thông báo sự kiện cộng đồng.",
+  "Chất lượng nước sinh hoạt cần được cải thiện urgently.",
+  "Nên có thêm sân chơi cho trẻ em ở các khu phố.",
+  "Đường chính cần được nhựa lại vì đã xuống cấp nghiêm trọng.",
+  "Cần tăng cường vệ sinh môi trường, đặc biệt ở khu vực chợ.",
+];
+
+const NAMES_POOL = [
+  "Nguyễn Văn Hùng", "Trần Thị Mai", "Lê Minh Tuấn", "Phạm Văn Đức", "Võ Thị Hoa",
+  "Đặng Minh Khoa", "Bùi Thị Lan", "Hoàng Văn Nam", "Ngô Thị Thu", "Đinh Văn Phong",
+];
+
+type FreeTextAnswer = { id: number; content: string; createdAt: string; hoodName: string; senderName: string };
+
+function generateMockAnswers(total: number): FreeTextAnswer[] {
+  const answers: FreeTextAnswer[] = [];
+  for (let i = 0; i < total; i++) {
+    const dayOff = Math.floor(i * 0.7);
+    const d = new Date();
+    d.setDate(d.getDate() - dayOff);
+    d.setHours(8 + (i % 10), (i * 17) % 60, 0, 0);
+    answers.push({
+      id: i + 1,
+      content: FREE_TEXT_POOL[i % FREE_TEXT_POOL.length],
+      createdAt: d.toISOString(),
+      hoodName: `Khu phố ${(i % 18) + 1}`,
+      senderName: NAMES_POOL[i % NAMES_POOL.length],
+    });
+  }
+  return answers;
+}
+
+// ─── Modal câu trả lời tự do ─────────────────────────────────────────────────
+function FreeTextAnswersModal({
+  survey, question, searchValue, onSearchChange, onClose,
+}: {
+  survey: Survey; question: Survey["questions"][0];
+  searchValue: string; onSearchChange: (v: string) => void; onClose: () => void;
+}) {
+  const allAnswers = useMemo(() => generateMockAnswers(survey.responses), [survey.responses]);
+
+  const filtered = useMemo(() => {
+    if (!searchValue.trim()) return allAnswers;
+    const q = searchValue.toLowerCase();
+    return allAnswers.filter((a) => a.content.toLowerCase().includes(q) || a.hoodName.toLowerCase().includes(q) || a.senderName.toLowerCase().includes(q));
+  }, [allAnswers, searchValue]);
+
+  const exportExcel = () => {
+    const data = filtered.map((a, i) => ({
+      "STT": i + 1,
+      "Nội dung": a.content,
+      "Người trả lời": a.senderName,
+      "Khu phố": a.hoodName,
+      "Thời gian": fmtDate(a.createdAt),
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = [{ wch: 5 }, { wch: 60 }, { wch: 20 }, { wch: 15 }, { wch: 18 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Câu trả lời");
+    XLSX.writeFile(wb, `${survey.title} - ${question.label}.xlsx`);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[95] bg-slate-900/40 flex items-center justify-center p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl max-h-[85vh] bg-white rounded-2xl border border-slate-200 shadow-xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2 min-w-0">
+            <Eye size={16} className="text-emerald-600 shrink-0" />
+            <div className="min-w-0">
+              <h3 className="text-[15px] font-semibold text-slate-900">Câu trả lời tự do</h3>
+              <p className="text-[11.5px] text-slate-500 truncate">{survey.title} — {question.label}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Toolbar: search + export */}
+        <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-100">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder="Tìm kiếm câu trả lời..."
+              className="w-full h-9 pl-9 pr-3 rounded-lg border border-slate-200 text-[13px] outline-none focus:border-blue-500"
+            />
+          </div>
+          <button
+            onClick={exportExcel}
+            className="flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[12.5px] font-medium shrink-0 transition-colors"
+          >
+            <Download size={14} />
+            Xuất Excel
+          </button>
+        </div>
+
+        {/* Table */}
+        <div className="flex-1 overflow-y-auto">
+          <table className="w-full text-[13px]">
+            <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-2.5 text-left font-semibold text-slate-600 w-12">STT</th>
+                <th className="px-4 py-2.5 text-left font-semibold text-slate-600">Nội dung</th>
+                <th className="px-4 py-2.5 text-left font-semibold text-slate-600 w-28">Khu phố</th>
+                <th className="px-4 py-2.5 text-left font-semibold text-slate-600 w-32">Thời gian</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-10 text-center text-slate-400">
+                    Không tìm thấy câu trả lời phù hợp.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((a, i) => (
+                  <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50/60">
+                    <td className="px-4 py-3 text-slate-500">{i + 1}</td>
+                    <td className="px-4 py-3 text-slate-800 leading-relaxed">{a.content}</td>
+                    <td className="px-4 py-3 text-slate-600">{a.hoodName}</td>
+                    <td className="px-4 py-3 text-slate-500">{fmtDate(a.createdAt)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between">
+          <span className="text-[12px] text-slate-500">
+            Hiển thị <span className="font-semibold text-slate-700">{filtered.length}</span> / {allAnswers.length} câu trả lời
+          </span>
+          <Button variant="secondary" onClick={onClose}>Đóng</Button>
+        </div>
+      </div>
+    </div>
+  );
 }

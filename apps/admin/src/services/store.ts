@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import * as mock from "../data/mock";
 import type {
   ContentItem, Feedback, HomeConfig, MediaItem, Neighborhood, Notification,
-  OrgSettings, Survey, User, Utility, WasteSchedule, ActivityLog, Household,
+  OrgSettings, Survey, User, Utility, WasteSchedule, ActivityLog, Household, HouseholdMember,
 } from "../types";
 
 /**
@@ -29,6 +29,7 @@ export interface Db {
   users: User[];
   neighborhoods: Neighborhood[];
   households: Household[];
+  householdMembers: HouseholdMember[];
   contents: ContentItem[];
   feedbacks: Feedback[];
   waste: WasteSchedule[];
@@ -45,6 +46,7 @@ const DEFAULTS: Db = {
   users: mock.USERS,
   neighborhoods: mock.NEIGHBORHOODS,
   households: mock.HOUSEHOLDS,
+  householdMembers: mock.HOUSEHOLD_MEMBERS,
   contents: mock.CONTENTS,
   feedbacks: mock.FEEDBACKS,
   waste: mock.WASTE,

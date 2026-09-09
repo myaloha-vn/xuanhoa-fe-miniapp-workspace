@@ -254,6 +254,14 @@ export interface Household {
   status: "active" | "moved_out" | "temp_absent";
 }
 
+export interface HouseholdMember {
+  householdId: string;
+  fullName: string;
+  phone: string;
+  dob: string;
+  relation: string;
+}
+
 export interface OrgSettings {
   name: string;
   address: string;

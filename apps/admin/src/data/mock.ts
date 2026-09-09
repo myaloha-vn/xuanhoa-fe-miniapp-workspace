@@ -1,6 +1,6 @@
 import type {
   ActivityLog, ContentItem, ContentStatus, Feedback, FeedbackStatus, HomeConfig,
-  Household, MediaItem, Neighborhood, Notification, OrgSettings, Priority, Suggestion, SuggestionStatus, Survey, User, Utility, WasteSchedule,
+  Household, HouseholdMember, MediaItem, Neighborhood, Notification, OrgSettings, Priority, Suggestion, SuggestionStatus, Survey, User, Utility, WasteSchedule,
 } from "../types";
 
 // ─── Tiện ích tạo dữ liệu tất định (deterministic) ───────────────────────────
@@ -499,3 +499,40 @@ function generateHouseholds(): Household[] {
 }
 
 export const HOUSEHOLDS: Household[] = generateHouseholds();
+
+// ─── Sinh dữ liệu thành viên hộ gia đình ──────────────────────────────────────
+const RELATIONS = ["Vợ", "Chồng", "Con trai", "Con gái", "Cha", "Mẹ", "Anh ruột", "Chị ruột", "Em ruột"];
+
+function generateHouseholdMembers(): HouseholdMember[] {
+  const result: HouseholdMember[] = [];
+  for (const hh of HOUSEHOLDS) {
+    // Chủ hộ
+    result.push({
+      householdId: hh.id,
+      fullName: hh.headName,
+      phone: hh.headPhone,
+      dob: dayOffset(-int(25, 70) * 365),
+      relation: "Chủ hộ",
+    });
+    // Thành viên khác (members - 1 người vì đã tính chủ hộ)
+    const extra = Math.max(0, hh.members - 1);
+    for (let k = 0; k < extra; k++) {
+      const isFemale = Math.random() > 0.5;
+      const surname = HEAD_SURNAMES[int(0, HEAD_SURNAMES.length - 1)];
+      const middle = isFemale
+        ? pick(HEAD_MIDDLES.filter(m => m === "Thị" || m === "Thúy" || m === "Thanh" || m === "Xuân"))
+        : pick(HEAD_MIDDLES.filter(m => m === "Văn" || m === "Đức" || m === "Minh" || m === "Hữu" || m === "Hoàng" || m === "Quang"));
+      const firstName = isFemale ? pick(HEAD_FIRSTS_FEMALE) : pick(HEAD_FIRSTS_MALE);
+      result.push({
+        householdId: hh.id,
+        fullName: `${surname} ${middle} ${firstName}`,
+        phone: `09${String(int(10000000, 99999999))}`,
+        dob: dayOffset(-int(1, 65) * 365),
+        relation: pick(RELATIONS),
+      });
+    }
+  }
+  return result;
+}
+
+export const HOUSEHOLD_MEMBERS: HouseholdMember[] = generateHouseholdMembers();
