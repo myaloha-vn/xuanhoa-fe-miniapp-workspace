@@ -277,13 +277,116 @@ export const LITERACY = LITERACY_TOPICS.map((t, i) => ({
 const ALL_NEWS_LIKE = [...NEWS, ...LITERACY.map((l) => l.news)];
 export const newsById = (id: number) => ALL_NEWS_LIKE.find((n) => n.id === id) ?? NEWS[0];
 
-export const FEEDBACKS = [
-  { id: "PK001", type: "Khác", content: "Đường Nguyễn Văn Linh đoạn qua KP 3 bị lún sụt nghiêm trọng, cần sửa chữa gấp", status: "processing" as const, date: "28/07/2024", address: "Đường Nguyễn Văn Linh, KP 3", note: "" },
-  { id: "PK002", type: "Điện - Nước", content: "Đèn đường trước số nhà 45/3 KP 7 bị hỏng từ 2 tuần nay, đề nghị sửa chữa", status: "resolved" as const, date: "20/07/2024", address: "45/3 Đường Xuân Hoà, KP 7", note: "" },
-  { id: "PK003", type: "Môi trường", content: "Bãi rác tự phát hình thành tại cuối đường số 12, cần xử lý dứt điểm", status: "pending" as const, date: "30/07/2024", address: "Cuối đường số 12, KP 12", note: "" },
-  { id: "PK004", type: "An ninh trật tự", content: "Nhóm thanh niên tụ tập gây mất trật tự về khuya tại công viên KP 5", status: "assigned" as const, date: "29/07/2024", address: "Công viên KP 5", note: "" },
-  { id: "PK005", type: "Khác", content: "Đề nghị lắp mái che tại điểm chờ xe buýt trước chợ KP 2", status: "rejected" as const, date: "18/07/2024", address: "Trước chợ KP 2", note: "Vị trí đề xuất nằm trong hành lang an toàn giao thông, chưa đủ điều kiện lắp đặt." },
+// ─── PHẢN ÁNH, KIẾN NGHỊ - XỬ LÝ 2 CẤP ──────────────────────────────────────
+// Cấp 1: Trưởng khu phố (theo khu phố người dân chọn khi gửi).
+// Cấp 2: Công chức UBND phường, chỉ nhận khi cấp 1 chuyển lên.
+export type FeedbackLevel = "hood" | "ubnd";
+
+export const FEEDBACK_LEVEL: Record<FeedbackLevel, { label: string; short: string; tone: string }> = {
+  hood: { label: "Đang ở cấp Khu phố", short: "Khu phố", tone: "bg-blue-100 text-blue-700" },
+  ubnd: { label: "Đang ở cấp UBND phường", short: "UBND phường", tone: "bg-violet-100 text-violet-700" },
+};
+
+/** Một mốc trong lịch sử xử lý - hiển thị cho người dân theo dõi */
+export type FeedbackEvent = {
+  at: string;
+  /** Ai thực hiện: tên người / bộ phận */
+  by: string;
+  /** Cấp thực hiện, để người dân biết phản ánh đang ở đâu */
+  level: FeedbackLevel | "citizen";
+  action: string;
+  note?: string;
+};
+
+export type FeedbackItem = {
+  id: string;
+  type: string;
+  content: string;
+  status: string;
+  date: string;
+  address: string;
+  note: string;
+  /** Khu phố người dân chọn khi gửi - căn cứ định tuyến tới Trưởng khu phố */
+  hoodId?: number;
+  level?: FeedbackLevel;
+  /** Người tiếp nhận ở cấp đang xử lý */
+  receiver?: string;
+  /** Bộ phận/cán bộ được UBND phân công */
+  assignee?: string;
+  /** Nội dung kết quả xử lý công khai cho người dân */
+  result?: string;
+  /** Ảnh minh chứng kết quả xử lý */
+  resultImages?: string[];
+  history?: FeedbackEvent[];
+};
+
+export const FEEDBACKS: FeedbackItem[] = [
+  {
+    id: "PK001", type: "Khác",
+    content: "Đường Nguyễn Văn Linh đoạn qua KP 3 bị lún sụt nghiêm trọng, cần sửa chữa gấp",
+    status: "forwarded", date: "28/07/2024", address: "Đường Nguyễn Văn Linh, KP 3", note: "",
+    hoodId: 3, level: "ubnd",
+    receiver: "Lê Minh Tuấn - Trưởng Khu phố 3",
+    assignee: "Bộ phận Quản lý đô thị - UBND phường",
+    history: [
+      { at: "28/07/2024 08:15", by: "Người dân", level: "citizen", action: "Gửi phản ánh, chọn Khu phố 3" },
+      { at: "28/07/2024 09:40", by: "Lê Minh Tuấn - Trưởng Khu phố 3", level: "hood", action: "Tiếp nhận phản ánh" },
+      { at: "29/07/2024 10:05", by: "Lê Minh Tuấn - Trưởng Khu phố 3", level: "hood", action: "Chuyển UBND phường", note: "Hạng mục sửa chữa mặt đường vượt thẩm quyền khu phố, đề nghị UBND phường xem xét bố trí kinh phí." },
+      { at: "30/07/2024 08:00", by: "Công chức UBND phường", level: "ubnd", action: "Tiếp nhận từ khu phố" },
+      { at: "30/07/2024 14:30", by: "Công chức UBND phường", level: "ubnd", action: "Phân công Bộ phận Quản lý đô thị xử lý" },
+    ],
+  },
+  {
+    id: "PK002", type: "Điện - Nước",
+    content: "Đèn đường trước số nhà 45/3 KP 7 bị hỏng từ 2 tuần nay, đề nghị sửa chữa",
+    status: "resolved", date: "20/07/2024", address: "45/3 Đường Xuân Hoà, KP 7", note: "",
+    hoodId: 7, level: "hood",
+    receiver: "Bùi Thị Lan - Trưởng Khu phố 7",
+    result: "Khu phố đã phối hợp đơn vị điện lực thay bóng đèn và kiểm tra toàn tuyến. Đèn đã sáng bình thường từ tối 22/07.",
+    resultImages: [
+      "https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=400&h=300&fit=crop&auto=format",
+    ],
+    history: [
+      { at: "20/07/2024 19:20", by: "Người dân", level: "citizen", action: "Gửi phản ánh, chọn Khu phố 7" },
+      { at: "21/07/2024 07:50", by: "Bùi Thị Lan - Trưởng Khu phố 7", level: "hood", action: "Tiếp nhận phản ánh" },
+      { at: "22/07/2024 16:10", by: "Bùi Thị Lan - Trưởng Khu phố 7", level: "hood", action: "Cập nhật kết quả xử lý" },
+      { at: "22/07/2024 16:15", by: "Bùi Thị Lan - Trưởng Khu phố 7", level: "hood", action: "Đóng phản ánh" },
+    ],
+  },
+  {
+    id: "PK003", type: "Môi trường",
+    content: "Bãi rác tự phát hình thành tại cuối đường số 12, cần xử lý dứt điểm",
+    status: "pending", date: "30/07/2024", address: "Cuối đường số 12, KP 12", note: "",
+    hoodId: 12, level: "hood",
+    history: [
+      { at: "30/07/2024 06:45", by: "Người dân", level: "citizen", action: "Gửi phản ánh, chọn Khu phố 12" },
+    ],
+  },
+  {
+    id: "PK004", type: "An ninh trật tự",
+    content: "Nhóm thanh niên tụ tập gây mất trật tự về khuya tại công viên KP 5",
+    status: "processing", date: "29/07/2024", address: "Công viên KP 5", note: "",
+    hoodId: 5, level: "hood",
+    receiver: "Võ Thị Hoa - Trưởng Khu phố 5",
+    history: [
+      { at: "29/07/2024 22:10", by: "Người dân", level: "citizen", action: "Gửi phản ánh, chọn Khu phố 5" },
+      { at: "30/07/2024 07:30", by: "Võ Thị Hoa - Trưởng Khu phố 5", level: "hood", action: "Tiếp nhận phản ánh" },
+      { at: "30/07/2024 08:00", by: "Võ Thị Hoa - Trưởng Khu phố 5", level: "hood", action: "Đang phối hợp Tổ tự quản kiểm tra hiện trường" },
+    ],
+  },
+  {
+    id: "PK005", type: "Khác",
+    content: "Đề nghị lắp mái che tại điểm chờ xe buýt trước chợ KP 2",
+    status: "rejected", date: "18/07/2024", address: "Trước chợ KP 2", note: "Vị trí đề xuất nằm trong hành lang an toàn giao thông, chưa đủ điều kiện lắp đặt.",
+    hoodId: 2, level: "hood",
+    receiver: "Trần Thị Mai - Trưởng Khu phố 2",
+    history: [
+      { at: "18/07/2024 09:00", by: "Người dân", level: "citizen", action: "Gửi phản ánh, chọn Khu phố 2" },
+      { at: "18/07/2024 15:20", by: "Trần Thị Mai - Trưởng Khu phố 2", level: "hood", action: "Không tiếp nhận", note: "Vị trí đề xuất nằm trong hành lang an toàn giao thông, chưa đủ điều kiện lắp đặt." },
+    ],
+  },
 ];
+
 
 const LEADER_NAMES = [
   "Nguyễn Văn Hùng","Trần Thị Mai","Lê Minh Tuấn","Phạm Văn Đức",
@@ -445,10 +548,122 @@ export const SEED_SUGGESTIONS: Suggestion[] = [
 
 // ─── HOUSEHOLD REGISTRATION (khai báo hộ) ────────────────────────────────────
 export type HouseholdRole = "owner" | "member";
+
+/**
+ * Khai báo của CHÍNH người đang dùng app (1 người - 1 bản ghi, lưu localStorage).
+ * Các trường name/phone/address/hoodId/role/groups giữ nguyên như trước để
+ * những màn hình cũ (Cá nhân, Phản ánh, Khu phố...) không phải sửa.
+ */
 export type Household = {
   name: string; phone: string; address: string; hoodId: number;
   role: HouseholdRole; groups: string[];
+  /** Mã hộ gia đình mà người này thuộc về (trỏ tới HouseholdRecord) */
+  householdId?: string;
+  /** Trạng thái liên kết của cá nhân với hộ */
+  memberStatus?: MemberStatus;
 };
+
+/**
+ * HỘ GIA ĐÌNH gắn với 1 ĐỊA CHỈ - dùng chung cho mọi nhân khẩu tại địa chỉ đó.
+ * Đây là "sổ hộ" của hệ thống: chủ hộ khai trước thì các thành viên khai sau
+ * sẽ nhìn thấy tên chủ hộ để chọn.
+ */
+export type HouseholdStatus =
+  | "active"          // Chủ hộ tự khai báo → hộ đã được xác lập
+  | "pending_owner";  // Nhân khẩu khai hộ thay → chờ chủ hộ xác nhận
+
+export type MemberStatus = "confirmed" | "pending";
+
+/**
+ * Đề nghị thay đổi vai trò trong hộ. Vai trò chủ hộ / thành viên KHÔNG được tự
+ * đổi bằng một ô chọn, vì nó quyết định ai đại diện hộ. Mọi thay đổi đều đi qua
+ * một đề nghị, chờ bên kia (hoặc cán bộ khu phố) xác nhận.
+ */
+export type RoleRequest = {
+  /** transfer: chủ hộ nhường quyền · claim: thành viên xin làm chủ hộ */
+  kind: "transfer" | "claim";
+  requesterName: string;
+  /** Người được đề nghị làm chủ hộ mới (với đề nghị nhường quyền) */
+  targetName?: string;
+  createdAt: string;
+};
+
+export const ROLE_REQUEST_LABEL: Record<RoleRequest["kind"], string> = {
+  transfer: "Chờ xác nhận chuyển vai trò chủ hộ",
+  claim: "Chờ xác nhận đề nghị làm chủ hộ",
+};
+
+export type HouseholdRecord = {
+  id: string;
+  hoodId: number;
+  address: string;
+  /** Khoá chuẩn hoá của địa chỉ, dùng để tra cứu hộ tại cùng một địa chỉ */
+  addressKey: string;
+  ownerName: string;
+  ownerPhone: string;
+  /** Số nhân khẩu chủ hộ khai (ước tính) */
+  size?: number;
+  housingType?: string;
+  status: HouseholdStatus;
+  /** Ai là người tạo bản ghi: chủ hộ, hay một nhân khẩu khai thay */
+  createdBy: "owner" | "member";
+  createdAt: string;
+  members: { name: string; phone: string; relation: string; status: MemberStatus }[];
+  /** Đề nghị đổi vai trò đang chờ xử lý (nếu có) */
+  roleRequest?: RoleRequest;
+};
+
+export const HOUSEHOLD_STATUS: Record<HouseholdStatus, { label: string; tone: string }> = {
+  active: { label: "Đã xác lập", tone: "bg-green-100 text-green-700 border-green-200" },
+  pending_owner: { label: "Chờ chủ hộ xác nhận", tone: "bg-amber-100 text-amber-700 border-amber-200" },
+};
+
+/** Quan hệ với chủ hộ - dùng cho người khai báo với vai trò thành viên */
+export const HOUSEHOLD_RELATIONS = [
+  "Vợ/Chồng", "Con", "Cha/Mẹ", "Ông/Bà", "Anh/Chị/Em", "Cháu", "Người ở trọ", "Khác",
+];
+
+export const HOUSING_TYPES = [
+  "Nhà riêng", "Nhà thuê", "Chung cư", "Nhà trọ", "Ở nhờ",
+];
+
+/**
+ * Chuẩn hoá địa chỉ để so khớp: bỏ dấu câu, khoảng trắng thừa, viết thường.
+ * "45/3 Đường số 7, KP 7" và "45/3 đường số 7 - kp.7" cùng trỏ về một hộ.
+ */
+export function addressKeyOf(address: string, hoodId: number): string {
+  const norm = address
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\u0111/g, "d")
+    .replace(/[.,\-–—_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return `kp${hoodId}::${norm}`;
+}
+
+export const HOUSEHOLDS_KEY = "xhs_household_registry";
+export const HOUSEHOLDS_LISTENERS = new Set<() => void>();
+
+/**
+ * Vài hộ đã khai báo sẵn để demo được luồng "chủ hộ khai trước": người dùng
+ * nhập đúng địa chỉ mẫu (xem gợi ý trong form) sẽ thấy tên chủ hộ hiện ra.
+ */
+export const SEED_HOUSEHOLDS: HouseholdRecord[] = [1, 3, 7].flatMap((hoodId) =>
+  NEIGHBORHOODS[hoodId - 1].households_list.slice(0, 3).map((h) => ({
+    id: `HO-${hoodId}-${h.id}`,
+    hoodId,
+    address: h.address,
+    addressKey: addressKeyOf(h.address, hoodId),
+    ownerName: h.representative,
+    ownerPhone: h.phone,
+    size: h.members,
+    housingType: "Nhà riêng",
+    status: "active" as HouseholdStatus,
+    createdBy: "owner" as const,
+    createdAt: "2026-08-15T08:00:00",
+    members: [],
+  }))
+);
 
 export const HOUSEHOLD_ROLES: { value: HouseholdRole; label: string }[] = [
   { value: "owner", label: "Chủ hộ" },
@@ -484,24 +699,27 @@ export const statusColor = (s: string) =>
     pending: "bg-amber-100 text-amber-700",
     assigned: "bg-violet-100 text-violet-700",
     processing: "bg-blue-100 text-blue-700",
+    forwarded: "bg-indigo-100 text-indigo-700",
     resolved: "bg-green-100 text-green-700",
     rejected: "bg-red-100 text-red-700",
   }[s] ?? "bg-gray-100 text-gray-600");
 export const statusLabel = (s: string) =>
   ({
-    pending: "Chờ duyệt",
-    assigned: "Chờ xử lý",
+    pending: "Mới gửi",
+    assigned: "Đã tiếp nhận",
     processing: "Đang xử lý",
+    forwarded: "Chuyển UBND",
     resolved: "Đã xử lý",
     rejected: "Từ chối",
   }[s] ?? s);
 /** Mô tả ý nghĩa từng trạng thái - dùng cho phần chú giải ở trang Theo dõi phản ánh. */
 export const statusDesc = (s: string) =>
   ({
-    pending: "Phản ánh vừa gửi, chờ kiểm duyệt nội dung hợp lệ.",
-    assigned: "Đã duyệt, chuyển tới đơn vị có thẩm quyền.",
-    processing: "Đơn vị đang xác minh, xử lý.",
-    resolved: "Xong, kết quả đã công khai.",
+    pending: "Phản ánh vừa gửi, đang chờ Trưởng khu phố tiếp nhận.",
+    assigned: "Trưởng khu phố đã tiếp nhận phản ánh.",
+    processing: "Trưởng khu phố đang xác minh, xử lý tại cấp khu phố.",
+    forwarded: "Vượt thẩm quyền khu phố, đã chuyển UBND phường xử lý.",
+    resolved: "Đã xử lý xong và đóng phản ánh, kết quả công khai bên dưới.",
     rejected: "Không được duyệt, có ghi lý do.",
   }[s] ?? "");
 

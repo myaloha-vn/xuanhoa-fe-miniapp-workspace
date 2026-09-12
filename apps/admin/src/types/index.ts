@@ -82,7 +82,14 @@ export interface ApprovalEntry {
  * (Cảnh báo sắp đến hạn / quá hạn không phải trạng thái riêng — xem slaState() trong utils/format.ts)
  */
 export type FeedbackStatus =
-  | "pending_review" | "pending" | "processing" | "resolved" | "rejected";
+  | "pending_review" | "pending" | "processing" | "forwarded" | "resolved" | "rejected";
+
+/**
+ * Cấp đang xử lý phản ánh.
+ *  hood - Cấp 1, Trưởng khu phố (theo khu phố người dân chọn khi gửi).
+ *  ubnd - Cấp 2, Công chức UBND phường, chỉ nhận khi cấp 1 chuyển lên.
+ */
+export type FeedbackLevel = "hood" | "ubnd";
 export type Priority = "urgent" | "high" | "normal";
 
 export interface Feedback {
@@ -106,6 +113,14 @@ export interface Feedback {
   priority: Priority;
   timeline: FeedbackEvent[];
   result?: string;
+  /** Ảnh minh chứng kết quả xử lý, hiển thị cho người dân */
+  resultImages?: string[];
+  /** Cấp đang xử lý - mặc định là cấp khu phố */
+  level?: FeedbackLevel;
+  /** Lý do Trưởng khu phố chuyển lên UBND */
+  forwardReason?: string;
+  forwardedBy?: string;
+  forwardedAt?: string;
 }
 
 export interface FeedbackEvent {

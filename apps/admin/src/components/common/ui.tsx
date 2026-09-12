@@ -52,6 +52,7 @@ const FEEDBACK_STATUS: Record<string, { label: string; tone: string }> = {
   pending_review: { label: "Chờ duyệt", tone: "violet" },
   pending: { label: "Chờ xử lý", tone: "blue" },
   processing: { label: "Đang xử lý", tone: "amber" },
+  forwarded: { label: "Chuyển UBND", tone: "violet" },
   resolved: { label: "Đã xử lý", tone: "green" },
   rejected: { label: "Từ chối", tone: "red" },
 };

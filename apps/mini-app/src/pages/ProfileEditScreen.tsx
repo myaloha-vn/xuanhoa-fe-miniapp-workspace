@@ -36,6 +36,11 @@ export default function ProfileEditScreen() {
             navigate(`/neighborhood/${h.hoodId}`);
           }}
           onCancel={goBack}
+          onMove={() => {
+            // Chuyển nơi ở = sang hộ gia đình khác → bỏ liên kết cũ, khai báo lại.
+            setHousehold(null);
+            navigate("/neighborhood", { replace: true });
+          }}
         />
       </div>
     </div>

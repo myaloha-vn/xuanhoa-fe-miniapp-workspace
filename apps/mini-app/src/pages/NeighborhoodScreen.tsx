@@ -48,7 +48,8 @@ export default function NeighborhoodScreen() {
           <AppHeader title="Khai báo hộ gia đình" onBack={() => navigate("/")} />
         </div>
         <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
-          <HouseholdForm initial={null} onSubmit={commit} />
+          {/* onCancel: thoát khai báo (VD chọn chờ chủ hộ khai báo trước) */}
+          <HouseholdForm initial={null} onSubmit={commit} onCancel={() => navigate("/")} />
         </div>
       </div>
     );

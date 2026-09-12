@@ -1,5 +1,5 @@
 import type {
-  ActivityLog, ContentItem, ContentStatus, Feedback, FeedbackStatus, HomeConfig,
+  ActivityLog, ContentItem, ContentStatus, Feedback, FeedbackLevel, FeedbackStatus, HomeConfig,
   Household, HouseholdMember, MediaItem, Neighborhood, Notification, OrgSettings, Priority, Suggestion, SuggestionStatus, Survey, User, Utility, WasteSchedule,
 } from "../types";
 
@@ -129,6 +129,14 @@ const REJECT_REASONS = [
   "Không thuộc phạm vi xử lý của UBND phường.",
 ];
 
+/** Lý do Trưởng khu phố chuyển phản ánh lên UBND phường */
+const FORWARD_REASONS = [
+  "Hạng mục sửa chữa vượt thẩm quyền và kinh phí của khu phố, đề nghị UBND phường xem xét bố trí.",
+  "Vụ việc liên quan nhiều đơn vị chuyên môn, khu phố không đủ thẩm quyền phối hợp xử lý.",
+  "Đã vận động, nhắc nhở nhiều lần nhưng không chuyển biến, đề nghị UBND phường xử lý theo quy định.",
+  "Nội dung thuộc lĩnh vực quản lý chuyên ngành, ngoài phạm vi giải quyết của khu phố.",
+];
+
 export const FEEDBACKS: Feedback[] = Array.from({ length: 30 }, (_, i) => {
   const hoodId = int(1, 18);
   const status = FB_STATUS[i % FB_STATUS.length];
@@ -136,6 +144,9 @@ export const FEEDBACKS: Feedback[] = Array.from({ length: 30 }, (_, i) => {
   const due = dayOffset(-int(0, 21) + 7, 17);
   const priority: Priority = i % 9 === 0 ? "urgent" : i % 4 === 0 ? "high" : "normal";
   const hasAssignee = status === "processing" || status === "resolved";
+  // Khoảng 1/4 hồ sơ đã được Trưởng khu phố chuyển lên UBND phường (cấp 2).
+  const escalated = i % 4 === 1 && status !== "pending_review" && status !== "rejected";
+  const forwardedAt = dayOffset(-int(0, 4), 11);
   const assignee = hasAssignee ? pick(["u-feedback", "u-phuong", `u-hood-${hoodId}`]) : null;
   const reviewedAt = dayOffset(-int(0, 5), 9);
   const assignedAt = dayOffset(-int(0, 4), 10);
@@ -155,8 +166,14 @@ export const FEEDBACKS: Feedback[] = Array.from({ length: 30 }, (_, i) => {
     dueAt: due,
     assigneeId: assignee,
     unit: assignee ? "UBND phường Xuân Hoà" : null,
-    status,
+    status: escalated && status === "pending" ? ("forwarded" as FeedbackStatus) : status,
     priority,
+    level: (escalated ? "ubnd" : "hood") as FeedbackLevel,
+    ...(escalated ? {
+      forwardReason: FORWARD_REASONS[i % FORWARD_REASONS.length],
+      forwardedBy: `Trưởng Khu phố ${hoodId}`,
+      forwardedAt,
+    } : {}),
     timeline: [
       { at: created, by: "Hệ thống", action: "Tiếp nhận phản ánh từ ứng dụng Xuân Hoà Số" },
       ...(status === "rejected"
@@ -164,6 +181,9 @@ export const FEEDBACKS: Feedback[] = Array.from({ length: 30 }, (_, i) => {
         : status !== "pending_review"
           ? [{ at: reviewedAt, by: "Phạm Thu Hà", action: "Duyệt tiếp nhận phản ánh" }]
           : []),
+      ...(escalated
+        ? [{ at: forwardedAt, by: `Trưởng Khu phố ${hoodId}`, action: "Chuyển UBND phường", note: FORWARD_REASONS[i % FORWARD_REASONS.length] }]
+        : []),
       ...(hasAssignee ? [{ at: assignedAt, by: "Phạm Thu Hà", action: "Phân công xử lý" }] : []),
       ...(status === "resolved"
         ? [{ at: resolvedAt, by: userById(assignee)?.fullName ?? "Cán bộ", action: "Đã xử lý", note: "Đã xử lý xong và phản hồi người dân." }]
@@ -172,6 +192,7 @@ export const FEEDBACKS: Feedback[] = Array.from({ length: 30 }, (_, i) => {
     result: status === "resolved"
       ? "Đã xử lý xong, hiện trường được khắc phục và có ảnh nghiệm thu."
       : status === "rejected" ? REJECT_REASONS[i % REJECT_REASONS.length] : undefined,
+    resultImages: status === "resolved" ? [img(i + 100, 600, 400)] : undefined,
   };
 });
 

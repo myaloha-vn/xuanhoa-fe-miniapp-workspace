@@ -1,5 +1,8 @@
 import { useMemo, useState, useRef, useEffect } from "react";
-import { Home, Pencil, Trash2, Save, X, Upload, ChevronDown, Download, Eye } from "lucide-react";
+import {
+  Home, Pencil, Trash2, Save, X, Upload, ChevronDown, Download, Eye,
+  Info, List, MapPin, ArrowRightLeft,
+} from "lucide-react";
 import * as XLSX from "xlsx";
 import { Card, CardHeader, Badge, Button } from "../../components/common/ui";
 import { DataTable, type Column } from "../../components/common/DataTable";
@@ -8,6 +11,7 @@ import { useToast } from "../../components/common/Overlays";
 import { useScopedHouseholds } from "../../hooks/useScoped";
 import { useTable } from "../../services/store";
 import { fmtDate } from "../../utils/format";
+import { AddressTree, groupByAddress, addressKey } from "./AddressTree";
 import type { Household, HouseholdMember } from "../../types";
 
 const STATUS_LABEL: Record<Household["status"], string> = {
@@ -26,7 +30,8 @@ export default function HouseholdList() {
   const households = useScopedHouseholds();
   const [allHouseholds, setAllHouseholds] = useTable("households");
   const [neighborhoods] = useTable("neighborhoods");
-  const [allMembers] = useTable("householdMembers");
+  const [allMembers, setAllMembers] = useTable("householdMembers");
+  const [view, setView] = useState<"address" | "list">("address");
   const [q, setQ] = useState("");
   const [hoodFilter, setHoodFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -54,6 +59,37 @@ export default function HouseholdList() {
     return true;
   }), [households, q, hoodFilter, statusFilter]);
 
+  const groups = useMemo(() => groupByAddress(rows), [rows]);
+
+  /**
+   * Chuyển một nhân khẩu sang hộ khác đã được ghi nhận.
+   * Đây là thao tác sắp xếp dữ liệu quản lý (khai báo nhầm hộ), không phải
+   * nghiệp vụ tách hộ / nhập hộ. Vì vậy không cho chuyển bản ghi chủ hộ:
+   * muốn đổi chủ hộ thì sửa trực tiếp trong thông tin hộ.
+   */
+  const handleMoveMember = (index: number, targetId: string) => {
+    const m = allMembers[index];
+    if (!m || m.householdId === targetId) return;
+    if (m.relation === "Chủ hộ") {
+      toast("Không chuyển được bản ghi chủ hộ. Hãy sửa thông tin chủ hộ trong hộ tương ứng.");
+      return;
+    }
+    const fromId = m.householdId;
+    const next = allMembers.map((x, i) => (i === index ? { ...x, householdId: targetId } : x));
+    setAllMembers(next);
+
+    // Cập nhật lại số nhân khẩu của hai hộ bị ảnh hưởng cho khớp danh sách.
+    const countIn = (id: string) => next.filter((x) => x.householdId === id).length;
+    setAllHouseholds(allHouseholds.map((h) =>
+      h.id === fromId ? { ...h, members: countIn(fromId) }
+        : h.id === targetId ? { ...h, members: countIn(targetId) }
+        : h
+    ));
+
+    const target = allHouseholds.find((h) => h.id === targetId);
+    toast(`Đã chuyển ${m.fullName} sang hộ ${target?.headName ?? targetId}`);
+  };
+
   const handleSaveEdit = (updated: Household) => {
     setAllHouseholds(allHouseholds.map((h) => (h.id === updated.id ? updated : h)));
     setEditing(null);
@@ -67,7 +103,7 @@ export default function HouseholdList() {
     toast("Đã xoá hộ gia đình");
   };
 
-  const handleChangeHood = (householdId: number, newHoodId: number) => {
+  const handleChangeHood = (householdId: string, newHoodId: number) => {
     setAllHouseholds(allHouseholds.map((h) =>
       h.id === householdId ? { ...h, hoodId: newHoodId } : h
     ));
@@ -86,7 +122,7 @@ export default function HouseholdList() {
         const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(sheet);
 
         const newHouseholds: Household[] = jsonData.map((row, idx) => ({
-          id: Date.now() + idx,
+          id: `HH${Date.now()}${idx}`,
           code: row["Mã hộ"] || `H${String(allHouseholds.length + idx + 1).padStart(3, "0")}`,
           headName: row["Họ tên chủ hộ"] || "",
           headPhone: row["SĐT"] || row["Số điện thoại"] || "",
@@ -225,11 +261,41 @@ export default function HouseholdList() {
 
   return (
     <>
+      {/* Phạm vi module - nói rõ đây là dữ liệu quản lý, không phải hồ sơ cư trú */}
+      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+        <Info size={16} className="mt-0.5 shrink-0 text-blue-600" />
+        <p className="text-[12.5px] leading-relaxed text-blue-900">
+          Dữ liệu được tổ chức theo Địa chỉ → Hộ gia đình → Chủ hộ → Nhân khẩu, phục vụ tra cứu,
+          thống kê và nắm tình hình dân cư. Module chỉ quản lý và thống kê tương đối, không thực
+          hiện các nghiệp vụ cư trú chính thức như tách hộ, nhập hộ hay xác nhận quan hệ cư trú.
+        </p>
+      </div>
+
       <Card>
         <CardHeader
-          title="Danh sách hộ gia đình"
+          title={view === "address" ? "Dân cư theo địa chỉ" : "Danh sách hộ gia đình"}
           icon={<Home size={16} className="text-blue-600" />}
-          description={`Tổng: ${rows.length} hộ`}
+          action={
+            <div className="flex items-center gap-3">
+              <span className="text-[12px] text-slate-500 whitespace-nowrap">
+                {view === "address" ? `${groups.length} địa chỉ · ${rows.length} hộ` : `Tổng: ${rows.length} hộ`}
+              </span>
+              <div className="flex rounded-lg border border-slate-200 overflow-hidden">
+                <button type="button" onClick={() => setView("address")}
+                  className={`inline-flex items-center gap-1.5 px-2.5 h-8 text-[12.5px] transition-colors ${
+                    view === "address" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}>
+                  <MapPin size={13} /> Theo địa chỉ
+                </button>
+                <button type="button" onClick={() => setView("list")}
+                  className={`inline-flex items-center gap-1.5 px-2.5 h-8 text-[12.5px] border-l border-slate-200 transition-colors ${
+                    view === "list" ? "bg-blue-600 text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+                  }`}>
+                  <List size={13} /> Danh sách hộ
+                </button>
+              </div>
+            </div>
+          }
         />
         <FilterBar>
           <SearchInput
@@ -290,14 +356,24 @@ export default function HouseholdList() {
             )}
           </div>
         </FilterBar>
-        <DataTable
-          columns={columns}
-          rows={rows}
-          rowKey={(r) => r.id}
-          emptyTitle="Không có hộ gia đình nào"
-          emptyDescription="Thay đổi bộ lọc để xem thêm dữ liệu."
-          pageSizeOptions={[20, 50, 100]}
-        />
+        {view === "address" ? (
+          <AddressTree
+            groups={groups}
+            hoodName={hoodName}
+            members={allMembers}
+            onViewMembers={setViewingMembers}
+            onEdit={setEditing}
+          />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey={(r) => r.id}
+            emptyTitle="Không có hộ gia đình nào"
+            emptyDescription="Thay đổi bộ lọc để xem thêm dữ liệu."
+            pageSizeOptions={[20, 50, 100]}
+          />
+        )}
       </Card>
 
       {editing && (
@@ -320,7 +396,13 @@ export default function HouseholdList() {
       {viewingMembers && (
         <MembersModal
           household={viewingMembers}
-          members={allMembers.filter((m) => m.householdId === viewingMembers.id)}
+          entries={allMembers
+            .map((m, index) => ({ m, index }))
+            .filter((e) => e.m.householdId === viewingMembers.id)}
+          targets={allHouseholds.filter((h) => h.id !== viewingMembers.id)}
+          sameAddressKey={addressKey(viewingMembers.address, viewingMembers.hoodId)}
+          hoodName={hoodName}
+          onMove={handleMoveMember}
           onClose={() => setViewingMembers(null)}
         />
       )}
@@ -481,13 +563,31 @@ function ConfirmDeleteModal({
 
 function MembersModal({
   household,
-  members,
+  entries,
+  targets,
+  sameAddressKey,
+  hoodName,
+  onMove,
   onClose,
 }: {
   household: Household;
-  members: HouseholdMember[];
+  entries: { m: HouseholdMember; index: number }[];
+  /** Các hộ khác có thể nhận nhân khẩu chuyển sang */
+  targets: Household[];
+  sameAddressKey: string;
+  hoodName: (id: number) => string;
+  onMove: (index: number, targetId: string) => void;
   onClose: () => void;
 }) {
+  const [moving, setMoving] = useState<number | null>(null);
+  const [target, setTarget] = useState("");
+
+  // Ưu tiên các hộ cùng địa chỉ - đây là tình huống khai nhầm hộ hay gặp nhất.
+  const sameAddress = targets.filter((h) => addressKey(h.address, h.hoodId) === sameAddressKey);
+  const sameHood = targets.filter(
+    (h) => h.hoodId === household.hoodId && addressKey(h.address, h.hoodId) !== sameAddressKey
+  );
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -512,8 +612,8 @@ function MembersModal({
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 py-3">
-          {members.length === 0 ? (
-            <p className="text-[13px] text-slate-500 text-center py-8">Không có dữ liệu thành viên</p>
+          {entries.length === 0 ? (
+            <p className="text-[13px] text-slate-500 text-center py-8">Không có dữ liệu nhân khẩu</p>
           ) : (
             <table className="w-full text-[13px]">
               <thead>
@@ -523,21 +623,75 @@ function MembersModal({
                   <th className="text-left py-2 px-2 font-semibold text-slate-500 text-[11.5px] uppercase">Quan hệ</th>
                   <th className="text-left py-2 px-2 font-semibold text-slate-500 text-[11.5px] uppercase">SĐT</th>
                   <th className="text-left py-2 px-2 font-semibold text-slate-500 text-[11.5px] uppercase">Ngày sinh</th>
+                  <th className="text-right py-2 px-2 font-semibold text-slate-500 text-[11.5px] uppercase">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
-                {members.map((m, idx) => (
-                  <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50">
-                    <td className="py-2 px-2 text-slate-500">{idx + 1}</td>
-                    <td className="py-2 px-2 font-medium text-slate-800">{m.fullName}</td>
-                    <td className="py-2 px-2 text-slate-600">{m.relation}</td>
-                    <td className="py-2 px-2 text-slate-600">{m.phone || "—"}</td>
-                    <td className="py-2 px-2 text-slate-600">{fmtDate(m.dob)}</td>
-                  </tr>
-                ))}
+                {entries.map(({ m, index }, idx) => {
+                  const isHead = m.relation === "Chủ hộ";
+                  return (
+                    <tr key={index} className="border-b border-slate-50 align-top hover:bg-slate-50/50">
+                      <td className="py-2 px-2 text-slate-500">{idx + 1}</td>
+                      <td className="py-2 px-2 font-medium text-slate-800">{m.fullName}</td>
+                      <td className="py-2 px-2 text-slate-600">
+                        {isHead ? <Badge tone="blue">Chủ hộ</Badge> : m.relation}
+                      </td>
+                      <td className="py-2 px-2 text-slate-600">{m.phone || "—"}</td>
+                      <td className="py-2 px-2 text-slate-600">{fmtDate(m.dob)}</td>
+                      <td className="py-2 px-2">
+                        {isHead ? (
+                          <p className="text-[11.5px] text-slate-400 text-right">Không chuyển chủ hộ</p>
+                        ) : moving === index ? (
+                          <div className="flex flex-col items-end gap-1.5">
+                            <select
+                              value={target}
+                              onChange={(e) => setTarget(e.target.value)}
+                              className="w-full max-w-[230px] px-2 py-1.5 text-[12.5px] border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                            >
+                              <option value="">-- Chọn hộ nhận --</option>
+                              {sameAddress.length > 0 && (
+                                <optgroup label="Cùng địa chỉ">
+                                  {sameAddress.map((h) => (
+                                    <option key={h.id} value={h.id}>{h.headName} · {h.code}</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              {sameHood.length > 0 && (
+                                <optgroup label={hoodName(household.hoodId)}>
+                                  {sameHood.slice(0, 100).map((h) => (
+                                    <option key={h.id} value={h.id}>{h.headName} · {h.address}</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                            </select>
+                            <div className="flex gap-1.5">
+                              <Button variant="ghost" onClick={() => { setMoving(null); setTarget(""); }}>Huỷ</Button>
+                              <Button
+                                onClick={() => { if (target) { onMove(index, target); setMoving(null); setTarget(""); } }}
+                              >
+                                Chuyển
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end">
+                            <Button variant="ghost" onClick={() => { setMoving(index); setTarget(""); }}>
+                              <ArrowRightLeft size={13} /> Chuyển hộ
+                            </Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
+
+          <p className="mt-3 text-[11.5px] leading-relaxed text-slate-500 border-t border-slate-100 pt-3">
+            Chuyển nhân khẩu ở đây là thao tác sắp xếp lại dữ liệu khi khai báo chưa đúng hộ.
+            Đây không phải nghiệp vụ tách hộ, nhập hộ hay xác nhận quan hệ cư trú.
+          </p>
         </div>
 
         <div className="flex items-center justify-end px-5 py-3 border-t border-slate-100 shrink-0">

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
-  ArrowLeft, CheckCircle2, ClipboardCheck, MapPin, Phone, Send, UserPlus, AlertTriangle, XCircle,
+  ArrowLeft, ArrowUpRight, Building2, CheckCircle2, ClipboardCheck, ImagePlus, MapPin, Phone,
+  Send, UserPlus, Users, AlertTriangle, XCircle,
 } from "lucide-react";
 import { Card, CardHeader, StatusBadge, PriorityBadge, Badge, Button, ErrorState } from "../../components/common/ui";
 import { ConfirmDialog, RightDrawer, useToast } from "../../components/common/Overlays";
@@ -28,6 +29,10 @@ export default function FeedbackDetail() {
   const [result, setResult] = useState("");
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [forwardOpen, setForwardOpen] = useState(false);
+  const [forwardReason, setForwardReason] = useState("");
+  const [resultOpen, setResultOpen] = useState(false);
+  const [resultImages, setResultImages] = useState<string[]>([]);
 
   const fb = feedbacks.find((f) => f.id === id);
   if (!fb) return <ErrorState message="Không tìm thấy phản ánh." />;
@@ -51,12 +56,28 @@ export default function FeedbackDetail() {
   const sla = slaState(fb.dueAt, fb.status);
   const left = daysLeft(fb.dueAt);
 
-  const STATUS_FLOW: { key: FeedbackStatus; label: string }[] = [
-    { key: "pending_review", label: "Chờ duyệt" },
-    { key: "pending", label: "Chờ xử lý" },
-    { key: "processing", label: "Đang xử lý" },
-    { key: "resolved", label: "Đã xử lý" },
-  ];
+  // ── Cấp đang xử lý ────────────────────────────────────────────────────────
+  // Cấp 1 là Trưởng khu phố (tài khoản có phạm vi khu phố), cấp 2 là công chức
+  // UBND phường. Mỗi cấp chỉ thao tác khi hồ sơ đang nằm ở cấp của mình.
+  const level = fb.level ?? "hood";
+  const atHood = level === "hood";
+  const isHoodOfficer = !!hoodScope;
+  const canAct = atHood ? isHoodOfficer : !isHoodOfficer;
+  const closed = fb.status === "resolved" || fb.status === "rejected";
+
+  const STATUS_FLOW: { key: FeedbackStatus; label: string }[] = atHood
+    ? [
+        { key: "pending_review", label: "Mới gửi" },
+        { key: "pending", label: "Đã tiếp nhận" },
+        { key: "processing", label: "Khu phố xử lý" },
+        { key: "resolved", label: "Đã đóng" },
+      ]
+    : [
+        { key: "forwarded", label: "Chuyển UBND" },
+        { key: "pending", label: "UBND tiếp nhận" },
+        { key: "processing", label: "Đang xử lý" },
+        { key: "resolved", label: "Đã đóng" },
+      ];
   const activeIdx = Math.max(0, STATUS_FLOW.findIndex((s) => s.key === fb.status));
 
   return (
@@ -68,6 +89,31 @@ export default function FeedbackDetail() {
         <span className="font-mono text-[13px] text-slate-500">{fb.code}</span>
         <StatusBadge status={fb.status} kind="feedback" />
         <PriorityBadge priority={fb.priority} />
+      </div>
+
+      {/* Cấp đang xử lý - ai là người có quyền thao tác lúc này */}
+      <div className={`flex items-start gap-2.5 rounded-xl border px-4 py-3 text-[13px] ${
+        atHood ? "border-blue-200 bg-blue-50 text-blue-900" : "border-violet-200 bg-violet-50 text-violet-900"
+      }`}>
+        {atHood ? <Users size={16} className="mt-0.5 shrink-0" /> : <Building2 size={16} className="mt-0.5 shrink-0" />}
+        <div className="min-w-0">
+          <p className="font-medium">
+            {atHood
+              ? `Cấp 1 - Trưởng Khu phố ${fb.hoodId} đang phụ trách`
+              : "Cấp 2 - UBND phường đang phụ trách"}
+          </p>
+          {!atHood && fb.forwardReason && (
+            <p className="text-[12.5px] leading-relaxed mt-1">
+              Lý do chuyển từ khu phố: {fb.forwardReason}
+              {fb.forwardedBy ? ` (${fb.forwardedBy}${fb.forwardedAt ? `, ${fmtDateTime(fb.forwardedAt)}` : ""})` : ""}
+            </p>
+          )}
+          {!canAct && !closed && (
+            <p className="text-[12.5px] leading-relaxed mt-1">
+              Tài khoản của bạn chỉ theo dõi hồ sơ này, thao tác xử lý thuộc về cấp đang phụ trách.
+            </p>
+          )}
+        </div>
       </div>
 
       {sla !== "ok" && (
@@ -167,36 +213,76 @@ export default function FeedbackDetail() {
             </Card>
           </Allow>
 
-          {(fb.status === "pending_review" || fb.status === "pending" || fb.status === "processing") && (
+          {!closed && canAct && (
             <Allow module="feedback" action="edit">
               <Card>
-                <CardHeader title="Thao tác" />
+                <CardHeader title={atHood ? "Thao tác cấp khu phố" : "Thao tác cấp UBND"} />
                 <div className="px-5 py-4 flex flex-col gap-2">
-                  {fb.status === "pending_review" && (
-                    <Allow module="feedback" action="approve">
-                      <Button icon={<CheckCircle2 size={15} />}
-                        onClick={() => { update({ status: "pending" }, "Duyệt tiếp nhận phản ánh"); toast("Đã duyệt tiếp nhận"); }}>
-                        Duyệt tiếp nhận
-                      </Button>
-                      <Button variant="danger" icon={<XCircle size={15} />} onClick={() => setRejectOpen(true)}>
-                        Từ chối tiếp nhận
-                      </Button>
-                    </Allow>
-                  )}
-                  {fb.status === "pending" && (
-                    <Button variant="secondary" icon={<UserPlus size={15} />} onClick={() => setAssignOpen(true)}>
-                      Phân công xử lý
-                    </Button>
-                  )}
-                  {fb.status === "processing" && (
+                  {/* ── CẤP 1: TRƯỞNG KHU PHỐ ─────────────────────────── */}
+                  {atHood && (
                     <>
-                      <Button variant="secondary" icon={<UserPlus size={15} />} onClick={() => setAssignOpen(true)}>
-                        Phân công lại
-                      </Button>
-                      <Button variant="secondary" icon={<Send size={15} />} onClick={() => setProgressOpen(true)}>
-                        Cập nhật tiến độ
-                      </Button>
-                      <Button icon={<CheckCircle2 size={15} />} onClick={() => setConfirmDone(true)}>Đánh dấu đã xử lý</Button>
+                      {fb.status === "pending_review" && (
+                        <Allow module="feedback" action="approve">
+                          <Button icon={<CheckCircle2 size={15} />}
+                            onClick={() => { update({ status: "pending" }, "Trưởng khu phố tiếp nhận phản ánh"); toast("Đã tiếp nhận phản ánh"); }}>
+                            Tiếp nhận phản ánh
+                          </Button>
+                          <Button variant="danger" icon={<XCircle size={15} />} onClick={() => setRejectOpen(true)}>
+                            Từ chối tiếp nhận
+                          </Button>
+                        </Allow>
+                      )}
+                      {fb.status === "pending" && (
+                        <Button icon={<Send size={15} />}
+                          onClick={() => { update({ status: "processing" }, "Khu phố bắt đầu xử lý"); toast("Đã chuyển sang Đang xử lý"); }}>
+                          Bắt đầu xử lý tại khu phố
+                        </Button>
+                      )}
+                      {(fb.status === "pending" || fb.status === "processing") && (
+                        <>
+                          <Button variant="secondary" icon={<ImagePlus size={15} />} onClick={() => setResultOpen(true)}>
+                            Cập nhật kết quả + hình ảnh
+                          </Button>
+                          <Button icon={<CheckCircle2 size={15} />} onClick={() => setConfirmDone(true)}>
+                            Đóng phản ánh
+                          </Button>
+                          <Button variant="secondary" icon={<ArrowUpRight size={15} />} onClick={() => setForwardOpen(true)}>
+                            Chuyển UBND phường
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {/* ── CẤP 2: CÔNG CHỨC UBND ─────────────────────────── */}
+                  {!atHood && (
+                    <>
+                      {fb.status === "forwarded" && (
+                        <Button icon={<CheckCircle2 size={15} />}
+                          onClick={() => { update({ status: "pending" }, "UBND phường tiếp nhận phản ánh từ khu phố"); toast("Đã tiếp nhận từ khu phố"); }}>
+                          Tiếp nhận từ khu phố
+                        </Button>
+                      )}
+                      {(fb.status === "pending" || fb.status === "processing") && (
+                        <Button variant="secondary" icon={<UserPlus size={15} />} onClick={() => setAssignOpen(true)}>
+                          {fb.assigneeId ? "Phân công lại" : "Phân công xử lý"}
+                        </Button>
+                      )}
+                      {fb.status === "processing" && (
+                        <Button variant="secondary" icon={<Send size={15} />} onClick={() => setProgressOpen(true)}>
+                          Cập nhật tiến độ
+                        </Button>
+                      )}
+                      {(fb.status === "pending" || fb.status === "processing") && (
+                        <>
+                          <Button variant="secondary" icon={<ImagePlus size={15} />} onClick={() => setResultOpen(true)}>
+                            Cập nhật kết quả + hình ảnh
+                          </Button>
+                          <Button icon={<CheckCircle2 size={15} />} onClick={() => setConfirmDone(true)}>
+                            Đóng phản ánh
+                          </Button>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -207,7 +293,17 @@ export default function FeedbackDetail() {
           {fb.result && (
             <Card>
               <CardHeader title={fb.status === "rejected" ? "Lý do từ chối" : "Kết quả xử lý"} />
-              <p className="px-5 py-4 text-[13px] text-slate-700 leading-relaxed">{fb.result}</p>
+              <div className="px-5 py-4 space-y-3">
+                <p className="text-[13px] text-slate-700 leading-relaxed">{fb.result}</p>
+                {fb.resultImages && fb.resultImages.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2">
+                    {fb.resultImages.map((src, i) => (
+                      <img key={i} src={src} alt="Ảnh minh chứng kết quả"
+                        className="w-full h-24 rounded-lg object-cover border border-slate-100" />
+                    ))}
+                  </div>
+                )}
+              </div>
             </Card>
           )}
         </div>
@@ -282,14 +378,104 @@ export default function FeedbackDetail() {
           placeholder="Ví dụ: nội dung không rõ ràng, trùng lặp, không thuộc phạm vi xử lý..." />
       </RightDrawer>
 
-      <ConfirmDialog open={confirmDone} title="Xác nhận đã xử lý"
-        description="Hồ sơ sẽ chuyển sang trạng thái Đã xử lý và gửi kết quả đến người dân."
-        confirmLabel="Đã xử lý"
+      {/* Cấp 1 chuyển hồ sơ lên cấp 2 - phải nêu rõ lý do để người dân theo dõi */}
+      <RightDrawer open={forwardOpen} title="Chuyển UBND phường" onClose={() => setForwardOpen(false)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setForwardOpen(false)}>Huỷ</Button>
+            <Button disabled={!forwardReason.trim()}
+              onClick={() => {
+                update(
+                  {
+                    status: "forwarded", level: "ubnd",
+                    forwardReason: forwardReason.trim(),
+                    forwardedBy: user?.fullName ?? `Trưởng Khu phố ${fb.hoodId}`,
+                    forwardedAt: new Date().toISOString(),
+                    assigneeId: null, unit: null,
+                  },
+                  "Chuyển UBND phường", forwardReason.trim()
+                );
+                setForwardOpen(false); setForwardReason("");
+                toast("Đã chuyển phản ánh lên UBND phường");
+              }}>
+              Xác nhận chuyển
+            </Button>
+          </>
+        }>
+        <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5 text-[12.5px] text-violet-900 mb-4">
+          Chỉ chuyển khi phản ánh vượt thẩm quyền hoặc không thể xử lý tại khu phố. Sau khi chuyển,
+          hồ sơ thuộc quyền xử lý của UBND phường và người dân được cập nhật trạng thái.
+        </div>
+        <label className="block text-[12.5px] font-medium text-slate-700 mb-1.5">
+          Lý do chuyển xử lý <span className="text-red-500">*</span>
+        </label>
+        <textarea value={forwardReason} onChange={(e) => setForwardReason(e.target.value)} rows={5}
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px] outline-none focus:border-blue-500 resize-none"
+          placeholder="Ví dụ: hạng mục sửa chữa vượt kinh phí khu phố, đề nghị UBND phường bố trí xử lý..." />
+      </RightDrawer>
+
+      {/* Cập nhật kết quả xử lý kèm ảnh minh chứng - dùng chung cho cả 2 cấp */}
+      <RightDrawer open={resultOpen} title="Cập nhật kết quả xử lý" onClose={() => setResultOpen(false)}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setResultOpen(false)}>Huỷ</Button>
+            <Button disabled={!result.trim()}
+              onClick={() => {
+                update(
+                  {
+                    result: result.trim(),
+                    resultImages: [...(fb.resultImages ?? []), ...resultImages],
+                    status: fb.status === "pending" || fb.status === "forwarded" ? "processing" : fb.status,
+                  },
+                  "Cập nhật kết quả xử lý", result.trim()
+                );
+                setResultOpen(false); setResultImages([]);
+                toast("Đã cập nhật kết quả xử lý");
+              }}>
+              Lưu kết quả
+            </Button>
+          </>
+        }>
+        <label className="block text-[12.5px] font-medium text-slate-700 mb-1.5">
+          Nội dung kết quả <span className="text-red-500">*</span>
+        </label>
+        <textarea value={result} onChange={(e) => setResult(e.target.value)} rows={5}
+          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-[13px] outline-none focus:border-blue-500 resize-none"
+          placeholder="Mô tả biện pháp đã thực hiện và hiện trạng sau xử lý..." />
+
+        <label className="block text-[12.5px] font-medium text-slate-700 mt-4 mb-1.5">Ảnh minh chứng</label>
+        <div className="grid grid-cols-3 gap-2">
+          {[...(fb.resultImages ?? []), ...resultImages].map((src, i) => (
+            <img key={i} src={src} alt="" className="w-full h-20 rounded-lg object-cover border border-slate-200" />
+          ))}
+          <label className="h-20 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-1 text-slate-400 cursor-pointer hover:border-blue-400 hover:text-blue-500 transition-colors">
+            <ImagePlus size={18} />
+            <span className="text-[11px] font-medium">Thêm ảnh</span>
+            <input type="file" accept="image/*" multiple className="hidden"
+              onChange={(e) => {
+                const files = Array.from(e.target.files ?? []);
+                if (files.length) setResultImages((p) => [...p, ...files.map((f) => URL.createObjectURL(f))]);
+                e.target.value = "";
+              }} />
+          </label>
+        </div>
+        <p className="text-[11.5px] text-slate-500 mt-2 leading-relaxed">
+          Kết quả và ảnh minh chứng sẽ hiển thị cho người dân ở mục Theo dõi phản ánh.
+        </p>
+      </RightDrawer>
+
+      <ConfirmDialog open={confirmDone} title="Đóng phản ánh"
+        description="Hồ sơ chuyển sang trạng thái Đã xử lý. Kết quả và ảnh minh chứng sẽ hiển thị cho người dân."
+        confirmLabel="Đóng phản ánh"
         onCancel={() => setConfirmDone(false)}
         onConfirm={() => {
-          update({ status: "resolved", result: result || "Đã xử lý xong và phản hồi người dân." }, "Đã xử lý", result);
+          update(
+            { status: "resolved", result: result || fb.result || "Đã xử lý xong và phản hồi người dân." },
+            atHood ? "Trưởng khu phố đóng phản ánh" : "UBND phường đóng phản ánh",
+            result || undefined
+          );
           setConfirmDone(false); setResult("");
-          toast("Đã cập nhật hồ sơ sang Đã xử lý");
+          toast("Đã đóng phản ánh");
         }} />
     </>
   );

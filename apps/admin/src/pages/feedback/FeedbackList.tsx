@@ -13,9 +13,13 @@ import type { Feedback } from "../../types";
 
 const TABS = [
   { key: "all", label: "Tất cả" },
-  { key: "pending_review", label: "Chờ duyệt" },
-  { key: "pending", label: "Chờ xử lý" },
+  { key: "pending_review", label: "Mới gửi" },
+  { key: "pending", label: "Đã tiếp nhận" },
   { key: "processing", label: "Đang xử lý" },
+  // Hai tab theo cấp xử lý: cấp 1 khu phố, cấp 2 UBND phường
+  { key: "at_hood", label: "Ở cấp khu phố" },
+  { key: "forwarded", label: "Chuyển UBND" },
+  { key: "at_ubnd", label: "Ở cấp UBND" },
   { key: "due", label: "Sắp đến hạn" },
   { key: "overdue", label: "Quá hạn" },
   { key: "resolved", label: "Đã xử lý" },
@@ -28,6 +32,9 @@ function matchTab(f: Feedback, tab: string) {
     case "pending_review": return f.status === "pending_review";
     case "pending": return f.status === "pending";
     case "processing": return f.status === "processing";
+    case "forwarded": return f.status === "forwarded";
+    case "at_hood": return (f.level ?? "hood") === "hood" && f.status !== "resolved" && f.status !== "rejected";
+    case "at_ubnd": return f.level === "ubnd" && f.status !== "resolved" && f.status !== "rejected";
     case "due": return sla === "due_soon";
     case "overdue": return sla === "overdue";
     case "resolved": return f.status === "resolved";
@@ -80,6 +87,12 @@ export default function FeedbackList() {
         ) }]
       : []),
     { key: "hood", header: "Khu phố", mobile: "meta", render: (r) => `Khu phố ${r.hoodId}` },
+    {
+      key: "level", header: "Cấp xử lý", mobile: "meta",
+      render: (r) => (r.level === "ubnd"
+        ? <Badge tone="violet">UBND phường</Badge>
+        : <Badge tone="blue">Khu phố</Badge>),
+    },
     { key: "field", header: "Lĩnh vực", mobile: "meta", render: (r) => <Badge tone="slate">{r.field}</Badge> },
     { key: "createdAt", header: "Ngày nhận", mobile: "meta", render: (r) => fmtDate(r.createdAt) },
     {

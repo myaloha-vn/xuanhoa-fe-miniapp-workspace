@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import {
-  AlertCircle, Building2, Camera, CheckCircle2, ChevronDown, Edit3, Info, MapPin, Navigation, Phone, Plus, User, X,
+  AlertCircle, Building2, Camera, CheckCircle2, ChevronDown, Edit3, Info, MapPin, Navigation,
+  Phone, Plus, User, Users, X,
 } from "lucide-react";
 import { useNavigate } from "react-router";
-import { FEEDBACK_TYPES, NEIGHBORHOODS } from "../data";
+import { FEEDBACK_TYPES, NEIGHBORHOODS, detectHoodId } from "../data";
 import { useHousehold } from "../hooks/useAppStorage";
 import { AppHeader } from "../components/shared/AppHeader";
 import { MapPicker } from "../components/shared/MapPicker";
@@ -31,12 +32,29 @@ export default function FeedbackFormScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [refId] = useState(`PK${String(Date.now()).slice(-4)}`);
 
-  const canSubmit = !!type && !!content.trim() && !!address.trim() && images.length > 0;
+  // ── Khu phố nơi phát sinh phản ánh - căn cứ định tuyến tới Trưởng khu phố ──
+  // Người dân là người chốt khu phố. Hệ thống chỉ điền sẵn giúp: ưu tiên khu
+  // phố đã khai báo hộ gia đình, nếu chưa khai báo thì đoán từ địa chỉ sự việc.
+  const [hoodId, setHoodId] = useState<number | "">(household?.hoodId ?? "");
+  const [hoodTouched, setHoodTouched] = useState(false);
+  const autoFromHousehold = !hoodTouched && !!household && hoodId === household.hoodId;
+
+  useEffect(() => {
+    if (hoodTouched || household) return;
+    const id = detectHoodId(address);
+    if (id) setHoodId(id);
+  }, [address, hoodTouched, household]);
+
+  const autoFromAddress = !hoodTouched && !household && !!hoodId;
+  const targetHood = hoodId ? NEIGHBORHOODS[Number(hoodId) - 1] : null;
+
+  const canSubmit = !!type && !!content.trim() && !!address.trim() && !!hoodId && images.length > 0;
 
   const submit = () => {
     if (!type) return setErr("Vui lòng chọn loại phản ánh");
     if (!content.trim()) return setErr("Vui lòng nhập nội dung phản ánh");
     if (!address.trim()) return setErr("Vui lòng nhập địa chỉ xảy ra sự việc");
+    if (!hoodId) return setErr("Vui lòng chọn khu phố nơi phát sinh phản ánh");
     if (images.length === 0) return setErr("Phản ánh bắt buộc có ít nhất 01 ảnh minh chứng");
     setErr("");
     setSubmitted(true);
@@ -61,6 +79,18 @@ export default function FeedbackFormScreen() {
               <p className="text-[11px] text-gray-500">Mã phản ánh</p>
               <p className="text-[16px] font-extrabold text-[#1565C0] tracking-wider">#{refId}</p>
             </div>
+            {targetHood && (
+              <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-left space-y-1 mt-1">
+                <p className="text-[10px] font-extrabold tracking-wider text-gray-400">ĐÃ CHUYỂN TỚI</p>
+                <p className="text-[12.5px] text-gray-700">
+                  <span className="font-semibold">{targetHood.name}</span> — Trưởng khu phố{" "}
+                  <span className="font-semibold">{targetHood.leader}</span>
+                </p>
+                <p className="text-[11px] text-gray-500 leading-snug">
+                  Bạn sẽ nhận thông báo khi phản ánh được tiếp nhận, chuyển cấp hoặc có kết quả xử lý.
+                </p>
+              </div>
+            )}
           </motion.div>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
             className="flex gap-3 w-full">
@@ -205,6 +235,62 @@ export default function FeedbackFormScreen() {
                   </p>
                 )}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Khu phố phản ánh - quyết định phản ánh được gửi tới Trưởng khu phố nào */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+          <p className="text-[13px] font-extrabold text-gray-800">
+            Khu phố phát sinh phản ánh <span className="text-red-400">*</span>
+          </p>
+          <p className="text-[11px] text-gray-400 -mt-1.5 leading-snug">
+            Phản ánh sẽ được chuyển tới Trưởng khu phố bạn chọn để tiếp nhận và xử lý.
+          </p>
+
+          <div className="relative">
+            <select value={hoodId}
+              onChange={(e) => { setHoodTouched(true); setHoodId(Number(e.target.value)); }}
+              className={`w-full appearance-none bg-gray-50 border rounded-xl pl-3.5 pr-9 py-3 text-[13px] outline-none focus:border-[#1565C0] transition-colors ${
+                hoodId ? "text-gray-800 font-semibold border-gray-200" : "text-gray-400 border-gray-200"
+              }`}>
+              <option value="">-- Chọn khu phố --</option>
+              {NEIGHBORHOODS.map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
+            </select>
+            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+
+          {autoFromHousehold && (
+            <p className="text-[11px] text-green-600 font-semibold flex items-start gap-1">
+              <CheckCircle2 size={12} className="shrink-0 mt-0.5" />
+              Tự điền theo khu phố bạn đã khai báo hộ gia đình. Nếu sự việc xảy ra ở khu phố khác,
+              hãy chọn lại.
+            </p>
+          )}
+          {autoFromAddress && (
+            <p className="text-[11px] text-green-600 font-semibold flex items-start gap-1">
+              <CheckCircle2 size={12} className="shrink-0 mt-0.5" />
+              Hệ thống nhận diện từ địa chỉ sự việc. Bạn có thể chọn lại nếu chưa đúng.
+            </p>
+          )}
+
+          {targetHood && (
+            <div className="rounded-xl bg-blue-50 border border-blue-100 px-3.5 py-3 space-y-1.5">
+              <p className="text-[10px] font-extrabold tracking-wider text-[#1565C0] flex items-center gap-1">
+                <Users size={11} /> NƠI TIẾP NHẬN PHẢN ÁNH
+              </p>
+              <div className="flex items-center gap-2 text-[12.5px] text-gray-700">
+                <Building2 size={13} className="text-[#1565C0] shrink-0" />
+                <span className="font-semibold">{targetHood.name}</span>
+              </div>
+              <div className="flex items-center gap-2 text-[12.5px] text-gray-600">
+                <User size={13} className="text-[#1565C0] shrink-0" />
+                Trưởng khu phố: <span className="font-semibold text-gray-800">{targetHood.leader}</span>
+              </div>
+              <p className="text-[11px] text-gray-500 leading-snug pt-1 border-t border-blue-100">
+                Nếu vượt thẩm quyền khu phố, Trưởng khu phố sẽ chuyển phản ánh lên UBND phường và
+                bạn được cập nhật trạng thái.
+              </p>
             </div>
           )}
         </div>
